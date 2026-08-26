@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 430" width="1200" height="430"
+     role="img" aria-label="How the pieces fit: config.yaml feeds the simulator, the simulator builds a 23-number observation per junction, four shared-weight DQN agents request a phase, the safety FSM gates it, and the lamp state advances the simulator again. Three entry points: train, eval, demo.">
+  <title>ATSC architecture: config to lamps, and back</title>
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1020"/>
+      <stop offset="0.55" stop-color="#0f1a33"/>
+      <stop offset="1" stop-color="#0b1322"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="430" rx="20" fill="url(#abg)"/>
+  <rect width="1200" height="430" rx="20" fill="url(#grid)"/>
+  <rect x="0.5" y="0.5" width="1199" height="429" rx="20" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+  <g stroke="#2c3d5f" stroke-width="1.6" fill="none">
+    <path d="M228 152H246"/>
+    <path d="M476 152H494"/>
+    <path d="M666 152H684"/>
+    <path d="M938 152H956"/>
+    <path d="M1064 236V296H364V246" stroke-dasharray="7 6">
+      <animate attributeName="stroke-dashoffset" values="0;-26" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <g fill="#7f90b3">
+    <path d="M254 152L246 147.5L246 156.5Z"/>
+    <path d="M502 152L494 147.5L494 156.5Z"/>
+    <path d="M692 152L684 147.5L684 156.5Z"/>
+    <path d="M964 152L956 147.5L956 156.5Z"/>
+    <path d="M364 238L359.5 246L368.5 246Z"/>
+  </g>
+  <g fill="#38bdf8">
+    <circle cx="228" cy="152" r="3" fill-opacity="0">
+      <animate attributeName="cx" values="228;245" dur="1.9s" repeatCount="indefinite"/>
+      <animate attributeName="fill-opacity" values="0;1;1;0" dur="1.9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="666" cy="152" r="3" fill-opacity="0">
+      <animate attributeName="cx" values="666;683" dur="1.9s" repeatCount="indefinite"/>
+      <animate attributeName="fill-opacity" values="0;1;1;0" dur="1.9s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <g font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif">
+  <rect x="40" y="40" width="4" height="14" rx="2" fill="#38bdf8"/>
+  <text x="54" y="52" font-size="11.5" font-weight="700" fill="#93a3c4" textLength="103" lengthAdjust="spacing">CONFIGURATION</text>
+  <rect x="40" y="68" width="182" height="168" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+  <text x="54" y="96" font-size="13" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#38bdf8" textLength="86" lengthAdjust="spacing">config.yaml</text>
+  <rect x="54" y="106" width="154" height="1" fill="#ffffff" fill-opacity="0.1"/>
+  <text x="54" y="128" font-size="10" fill="#9fb0d0" textLength="109" lengthAdjust="spacing">grid 2 × 2 · 200 m links</text>
+  <text x="54" y="150" font-size="10" fill="#9fb0d0" textLength="106" lengthAdjust="spacing">one decision every 5 s</text>
+  <text x="54" y="172" font-size="10" fill="#9fb0d0" textLength="123" lengthAdjust="spacing">green 10-60 s · amber 3 s</text>
+  <text x="54" y="194" font-size="10" fill="#9fb0d0" textLength="103" lengthAdjust="spacing">all-red 2 s · step 1.0 s</text>
+  <text x="54" y="216" font-size="10" fill="#9fb0d0" textLength="102" lengthAdjust="spacing">4 scenarios · seed 42</text>
+  <rect x="258" y="40" width="4" height="14" rx="2" fill="#5eead4"/>
+  <text x="272" y="52" font-size="11.5" font-weight="700" fill="#93a3c4" textLength="76" lengthAdjust="spacing">SIMULATION</text>
+  <rect x="258" y="68" width="212" height="168" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+  <text x="272" y="92" font-size="11.5" font-weight="700" fill="#f1f5fd" textLength="111" lengthAdjust="spacing">traffic environment</text>
+  <rect x="270" y="104" width="188" height="40" rx="10" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="282" y="122" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#5eead4" textLength="76" lengthAdjust="spacing">SUMO + TraCI</text>
+  <text x="282" y="136" font-size="9" fill="#7f90b3" textLength="141" lengthAdjust="spacing">microscopic, used when installed</text>
+  <rect x="270" y="152" width="188" height="40" rx="10" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="282" y="170" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#a3e635" textLength="126" lengthAdjust="spacing">built-in point-queue</text>
+  <text x="282" y="184" font-size="9" fill="#7f90b3" textLength="145" lengthAdjust="spacing">always available, ships the results</text>
+  <text x="272" y="210" font-size="9.5" fill="#7f90b3" textLength="171" lengthAdjust="spacing">backend: auto · 4 junctions, 8 sources</text>
+  <text x="272" y="224" font-size="9.5" fill="#7f90b3" textLength="155" lengthAdjust="spacing">the dashboard pins the built-in sim</text>
+  <rect x="506" y="40" width="4" height="14" rx="2" fill="#38bdf8"/>
+  <text x="520" y="52" font-size="11.5" font-weight="700" fill="#93a3c4" textLength="88" lengthAdjust="spacing">OBSERVATION</text>
+  <rect x="506" y="68" width="154" height="168" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+  <text x="518" y="106" font-size="27" font-weight="700" fill="#38bdf8" textLength="32" lengthAdjust="spacing">23</text>
+  <text x="558" y="98" font-size="9" fill="#7f90b3" textLength="54" lengthAdjust="spacing">numbers per</text>
+  <text x="558" y="110" font-size="9" fill="#7f90b3" textLength="68" lengthAdjust="spacing">junction, per 5 s</text>
+  <rect x="518" y="118" width="130" height="22" rx="7" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="526" y="133" font-size="10.5" font-weight="700" fill="#38bdf8" textLength="6" lengthAdjust="spacing">8</text>
+  <text x="544" y="133" font-size="9.5" fill="#9fb0d0" textLength="68" lengthAdjust="spacing">queues + waits</text>
+  <rect x="518" y="144" width="130" height="22" rx="7" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="526" y="159" font-size="10.5" font-weight="700" fill="#5eead4" textLength="6" lengthAdjust="spacing">3</text>
+  <text x="544" y="159" font-size="9.5" fill="#9fb0d0" textLength="62" lengthAdjust="spacing">phase + timer</text>
+  <rect x="518" y="170" width="130" height="22" rx="7" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="526" y="185" font-size="10.5" font-weight="700" fill="#f87171" textLength="6" lengthAdjust="spacing">4</text>
+  <text x="544" y="185" font-size="9.5" fill="#9fb0d0" textLength="75" lengthAdjust="spacing">emergency flags</text>
+  <rect x="518" y="196" width="130" height="22" rx="7" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <text x="526" y="211" font-size="10.5" font-weight="700" fill="#a3e635" textLength="6" lengthAdjust="spacing">8</text>
+  <text x="544" y="211" font-size="9.5" fill="#9fb0d0" textLength="70" lengthAdjust="spacing">neighbour state</text>
+  <text x="518" y="228" font-size="8.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" fill="#7f90b3" textLength="71" lengthAdjust="spacing">envs/spaces.py</text>
+  <rect x="696" y="40" width="4" height="14" rx="2" fill="#34d399"/>
+  <text x="710" y="52" font-size="11.5" font-weight="700" fill="#93a3c4" textLength="89" lengthAdjust="spacing">FOUR AGENTS</text>
+  <rect x="696" y="68" width="236" height="168" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+  <g stroke="#2c3d5f" stroke-width="1.4" fill="none">
+    <path d="M758 114H870M758 166H870M758 114V166M870 114V166"/>
+  </g>
+  <rect x="708" y="92" width="100" height="44" rx="10" fill="#0e1a30" stroke="#34d399" stroke-opacity="0.4"/>
+  <text x="720" y="111" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#f1f5fd" textLength="25" lengthAdjust="spacing">J0_0</text>
+  <text x="720" y="126" font-size="9" fill="#7f90b3" textLength="51" lengthAdjust="spacing">23 in · 2 out</text>
+  <rect x="820" y="92" width="100" height="44" rx="10" fill="#0e1a30" stroke="#34d399" stroke-opacity="0.4"/>
+  <text x="832" y="111" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#f1f5fd" textLength="25" lengthAdjust="spacing">J0_1</text>
+  <text x="832" y="126" font-size="9" fill="#7f90b3" textLength="51" lengthAdjust="spacing">23 in · 2 out</text>
+  <rect x="708" y="144" width="100" height="44" rx="10" fill="#0e1a30" stroke="#34d399" stroke-opacity="0.4"/>
+  <text x="720" y="163" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#f1f5fd" textLength="25" lengthAdjust="spacing">J1_0</text>
+  <text x="720" y="178" font-size="9" fill="#7f90b3" textLength="51" lengthAdjust="spacing">23 in · 2 out</text>
+  <rect x="820" y="144" width="100" height="44" rx="10" fill="#0e1a30" stroke="#34d399" stroke-opacity="0.4"/>
+  <text x="832" y="163" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#f1f5fd" textLength="25" lengthAdjust="spacing">J1_1</text>
+  <text x="832" y="178" font-size="9" fill="#7f90b3" textLength="51" lengthAdjust="spacing">23 in · 2 out</text>
+  <text x="708" y="206" font-size="9.5" fill="#9fb0d0" textLength="157" lengthAdjust="spacing">one shared Double + Dueling DQN</text>
+  <text x="708" y="220" font-size="9.5" fill="#7f90b3" textLength="153" lengthAdjust="spacing">hidden [128,128] · 19,971 params</text>
+  <rect x="968" y="40" width="4" height="14" rx="2" fill="#f59e0b"/>
+  <text x="982" y="52" font-size="11.5" font-weight="700" fill="#93a3c4" textLength="133" lengthAdjust="spacing">SAFETY + ACTUATION</text>
+  <rect x="968" y="68" width="192" height="168" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+  <rect x="980" y="94" width="150" height="24" rx="8" fill="#0e1a30" stroke="#22c55e" stroke-opacity="0.55"/>
+  <text x="992" y="110" font-size="10.5" font-weight="700" fill="#22c55e" textLength="40" lengthAdjust="spacing">GREEN</text>
+  <rect x="980" y="130" width="150" height="24" rx="8" fill="#0e1a30" stroke="#fbbf24" stroke-opacity="0.55"/>
+  <text x="992" y="146" font-size="10.5" font-weight="700" fill="#fbbf24" textLength="60" lengthAdjust="spacing">AMBER 3 s</text>
+  <rect x="980" y="166" width="150" height="24" rx="8" fill="#0e1a30" stroke="#f87171" stroke-opacity="0.55"/>
+  <text x="992" y="182" font-size="10.5" font-weight="700" fill="#f87171" textLength="67" lengthAdjust="spacing">ALL RED 2 s</text>
+  <g stroke="#2c3d5f" stroke-width="1.4" fill="none">
+    <path d="M1055 118V126M1055 154V162M1130 178H1144V106H1132"/>
+  </g>
+  <g fill="#7f90b3">
+    <path d="M1055 130L1050.5 122L1059.5 122Z"/>
+    <path d="M1055 166L1050.5 158L1059.5 158Z"/>
+    <path d="M1124 106L1132 101.5L1132 110.5Z"/>
+  </g>
+  <text x="980" y="210" font-size="9.5" fill="#7f90b3" textLength="146" lengthAdjust="spacing">min green 10 s · max green 60 s</text>
+  <text x="980" y="224" font-size="9.5" fill="#7f90b3" textLength="149" lengthAdjust="spacing">emergency preemption overrides</text>
+  <text x="714" y="288" font-size="9.5" fill="#7f90b3" text-anchor="middle" textLength="460" lengthAdjust="spacing">lamp state advances the simulator · reward + next observation · pooled prioritized replay · learner step</text>
+  <rect x="40" y="316" width="353" height="66" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <rect x="40" y="316" width="4" height="66" rx="2" fill="#38bdf8" fill-opacity="0.85"/>
+  <text x="58" y="341" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#38bdf8" textLength="131" lengthAdjust="spacing">python run.py train</text>
+  <text x="58" y="361" font-size="9.5" fill="#9fb0d0" textLength="225" lengthAdjust="spacing">112 episodes · curriculum low, medium, high, rush</text>
+  <text x="58" y="375" font-size="9.5" fill="#7f90b3" textLength="273" lengthAdjust="spacing">writes models/pretrained/atsc_2x2.pt + outputs/logs/train.csv</text>
+  <rect x="423" y="316" width="353" height="66" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <rect x="423" y="316" width="4" height="66" rx="2" fill="#34d399" fill-opacity="0.85"/>
+  <text x="441" y="341" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#34d399" textLength="124" lengthAdjust="spacing">python run.py eval</text>
+  <text x="441" y="361" font-size="9.5" fill="#9fb0d0" textLength="212" lengthAdjust="spacing">3 controllers × 4 scenarios × 3 seeds = 36 runs</text>
+  <text x="441" y="375" font-size="9.5" fill="#7f90b3" textLength="224" lengthAdjust="spacing">writes outputs/benchmark_*.csv and the KPI plots</text>
+  <rect x="806" y="316" width="354" height="66" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.1"/>
+  <rect x="806" y="316" width="4" height="66" rx="2" fill="#fbbf24" fill-opacity="0.85"/>
+  <text x="824" y="341" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-weight="700" fill="#fbbf24" textLength="124" lengthAdjust="spacing">python run.py demo</text>
+  <text x="824" y="361" font-size="9.5" fill="#9fb0d0" textLength="235" lengthAdjust="spacing">FastAPI + WebSocket dashboard on 127.0.0.1:8000</text>
+  <text x="824" y="375" font-size="9.5" fill="#7f90b3" textLength="262" lengthAdjust="spacing">falls back to a stdlib polling server when FastAPI is absent</text>
+  <text x="600" y="406" font-size="10" fill="#7f90b3" text-anchor="middle" textLength="644" lengthAdjust="spacing">run.py doctor checks the environment · run.py sim watches the trained policy in SUMO-GUI · every number comes from one config.yaml</text>
+  </g>
+</svg>

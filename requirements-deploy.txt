@@ -1,0 +1,22 @@
+# Runtime dependencies for a hosted deployment - deliberately smaller than
+# requirements.txt, which is the local *development* set (it also installs torch,
+# pandas, matplotlib, gymnasium and pytest for training, benchmarking and tests).
+#
+# Nothing here is optional and nothing is missing: the live dashboard imports only
+# numpy + PyYAML from the project side (verified by walking sys.modules after a full
+# session boot, an emergency injection and a scenario change), and fastapi + uvicorn
+# on the serving side.
+#
+# torch is intentionally absent. rl.nn_backend: auto falls back to the from-scratch
+# NumPy dueling network in src/atsc/agents/net.py, which loads the same shipped
+# checkpoint (models/pretrained/atsc_2x2.pt) and produces the same greedy actions.
+# That keeps the image ~50x smaller and the whole process inside a 512 MB free tier
+# (measured peak RSS with both simulations running: 41 MiB).
+#
+#   pip install -r requirements-deploy.txt
+#   uvicorn asgi:app --host 0.0.0.0 --port $PORT
+
+numpy==1.26.4
+PyYAML==6.0.1
+fastapi==0.111.0
+uvicorn[standard]==0.30.1

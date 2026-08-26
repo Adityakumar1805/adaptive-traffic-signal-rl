@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets. The project needs none - it has no API keys, no database and makes no
+# outbound calls - so anything matching these is a local experiment that must not be
+# published. Configure hosting-platform values as environment variables in the
+# platform's own dashboard, never in a committed file.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!models/**/*.key
+secrets.*
+credentials.json
+*_token.txt
+.netrc
+
+# Generated SUMO networks and logs (rebuilt on demand)
+scenarios/generated/
+*.log
+
+# outputs/ IS tracked on purpose: README.md, REPORT.md and docs/VIVA_MASTER.md quote
+# these exact CSVs/plots, so the published repo has to carry its own evidence.
+# Only the throwaway --quick training log is ignored.
+outputs/logs/train_quick.csv
+
+# Local-only bulk artefacts (share the zip via a GitHub Release instead)
+*.zip
+package-lock.json
+publish_to_github.ps1
+publish_to_github.bat
+publish_to_github.py
+PUBLISH_*.bat
+build_zip.py
+final_sweep.py
+.git.broken*/
+
+# Not part of the published project, and not needed to run it:
+#   the slide deck (a submission artefact, not source - hand it in separately),
+#   the agent instruction file,
+#   the publishing runbook (it embeds local absolute paths).
+# All three stay on disk; they are simply not committed.
+*.pptx
+CLAUDE.md
+docs/GITHUB_PUBLISH.md
+
+# Keep the shipped pre-trained model, but ignore ad-hoc checkpoints
+models/checkpoints/
+models/**/*.tmp
+
+# TensorBoard
+runs/
+
+# Do NOT ignore the shipped pretrained model:
+!models/pretrained/
+!models/pretrained/**

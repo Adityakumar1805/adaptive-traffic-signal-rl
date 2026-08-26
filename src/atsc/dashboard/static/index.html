@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adaptive Traffic Signal Control Using Multi-Agent Deep Reinforcement Learning</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- ===== Control bar ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="signal-dot" id="brandDot"></div>
+      <div>
+        <h1>ADAPTIVE TRAFFIC SIGNAL CONTROL</h1>
+        <p class="sub">Multi-agent Deep RL &nbsp;·&nbsp; <span id="gridLabel">2×2</span> grid &nbsp;·&nbsp; live race vs fixed-time</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="ctl-group">
+        <label>Scenario</label>
+        <select id="scenario">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="rush">Rush hour</option>
+        </select>
+      </div>
+      <div class="ctl-group">
+        <label>Transport</label>
+        <div class="btn-row">
+          <button id="playPause" class="btn primary">Pause</button>
+          <button id="stepBtn" class="btn">Step</button>
+          <button id="resetBtn" class="btn">Reset</button>
+        </div>
+      </div>
+      <div class="ctl-group">
+        <label>Speed <span id="speedLabel" class="mono">1×</span></label>
+        <input type="range" id="speed" min="1" max="8" step="1" value="1" />
+      </div>
+      <div class="ctl-group">
+        <label>&nbsp;</label>
+        <button id="emergencyBtn" class="btn emergency">🚨 Inject ambulance</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="ambBanner" class="amb-banner" hidden>🚑 AMBULANCE ACTIVE — signals are giving it a priority green corridor</div>
+
+  <!-- ===== KPI strip ===== -->
+  <section class="kpis">
+    <div class="kpi hero" id="kpiWait">
+      <div class="kpi-label">Waiting-time reduction</div>
+      <div class="kpi-value mono"><span id="waitImpr">–</span><span class="unit">%</span></div>
+      <div class="kpi-foot">RL vs fixed-time · same traffic</div>
+    </div>
+    <div class="kpi" id="kpiQueue">
+      <div class="kpi-label">Queue reduction</div>
+      <div class="kpi-value mono"><span id="queueImpr">–</span><span class="unit">%</span></div>
+      <div class="kpi-foot">avg halted / intersection</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Throughput (RL / fixed)</div>
+      <div class="kpi-value mono"><span id="thruRl">0</span><span class="slash">/</span><span id="thruFt" class="muted">0</span></div>
+      <div class="kpi-foot">vehicles cleared</div>
+    </div>
+    <div class="kpi" id="greenWaveCard">
+      <div class="kpi-label">Green wave</div>
+      <div class="kpi-value"><span id="greenWave" class="badge off">OFF</span></div>
+      <div class="kpi-foot">coordinated arterial progression</div>
+    </div>
+  </section>
+
+  <!-- ===== Network race ===== -->
+  <section class="arena">
+    <figure class="net-panel rl">
+      <figcaption>
+        <span class="tag rl-tag">RL CONTROLLER</span>
+        <span class="readout mono"><span id="rlWait">0</span>s wait · <span id="rlQueue">0</span> q</span>
+      </figcaption>
+      <canvas id="netRL" width="460" height="460"></canvas>
+    </figure>
+    <div class="vs">VS</div>
+    <figure class="net-panel ft">
+      <figcaption>
+        <span class="tag ft-tag">FIXED-TIME</span>
+        <span class="readout mono"><span id="ftWait">0</span>s wait · <span id="ftQueue">0</span> q</span>
+      </figcaption>
+      <canvas id="netFT" width="460" height="460"></canvas>
+    </figure>
+  </section>
+
+  <div class="legend">
+    <span class="lg"><i style="background:#8bd6ff"></i>Bike</span>
+    <span class="lg"><i style="background:#dbe8ff"></i>Car</span>
+    <span class="lg"><i style="background:#ffc93c"></i>Taxi</span>
+    <span class="lg"><i style="background:#1e9e5a"></i>Auto</span>
+    <span class="lg"><i style="background:#2f7fd6"></i>E-rick</span>
+    <span class="lg"><i style="background:#9be7bf"></i>Van</span>
+    <span class="lg"><i style="background:#ffd766"></i>Bus</span>
+    <span class="lg"><i style="background:#ff9d5c"></i>Truck</span>
+    <span class="lg"><i class="amb"></i>Ambulance</span>
+  </div>
+
+  <!-- ===== Live charts (native canvas, no external library) ===== -->
+  <section class="charts">
+    <div class="chart-card">
+      <h3>Average waiting time <span class="hint">lower is better</span></h3>
+      <div class="chart-box"><canvas id="chartWait"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Average queue length <span class="hint">lower is better</span></h3>
+      <div class="chart-box"><canvas id="chartQueue"></canvas></div>
+    </div>
+  </section>
+
+  <footer class="statusbar">
+    <span id="connDot" class="conn off"></span>
+    <span id="statusText" class="mono">connecting…</span>
+    <span class="spacer"></span>
+    <span class="mono">elapsed <span id="elapsed">0</span>s / <span id="epLen">0</span>s</span>
+    <span class="spacer"></span>
+    <span class="mono">NN: <span id="nnBackend">–</span> · model <span id="ckpt">–</span></span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

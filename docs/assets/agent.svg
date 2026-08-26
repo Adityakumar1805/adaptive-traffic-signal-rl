@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 430" width="1200" height="430"
+     role="img" aria-label="What one agent computes: 23-number observation, two hidden layers, dueling head, Q values, safety-gated request">
+  <title>What one agent computes, end to end</title>
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1020"/>
+      <stop offset="0.55" stop-color="#0f1a33"/>
+      <stop offset="1" stop-color="#0b1322"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="430" rx="20" fill="url(#abg)"/>
+  <rect width="1200" height="430" rx="20" fill="url(#grid)"/>
+  <rect x="0.5" y="0.5" width="1199" height="429" rx="20" fill="none"
+        stroke="#ffffff" stroke-opacity="0.09"/>
+
+  <!-- connectors: lines first, then arrowheads -->
+  <g stroke="#2c3d5f" stroke-width="1.6" fill="none">
+    <path d="M256 174H294"/>
+    <path d="M526 174H546M546 109V239M546 109H566M546 239H566"/>
+    <path d="M680 138V146"/>
+    <path d="M680 210V202"/>
+    <path d="M792 174H828"/>
+    <path d="M998 174H1036"/>
+    <path d="M1109 190V204"/>
+  </g>
+  <g fill="#7f90b3">
+    <path d="M302 174L294 169.5L294 178.5Z"/>
+    <path d="M574 109L566 104.5L566 113.5Z"/>
+    <path d="M574 239L566 234.5L566 243.5Z"/>
+    <path d="M680 154L675.5 146L684.5 146Z"/>
+    <path d="M680 194L675.5 202L684.5 202Z"/>
+    <path d="M836 174L828 169.5L828 178.5Z"/>
+    <path d="M1044 174L1036 169.5L1036 178.5Z"/>
+    <path d="M1109 212L1104.5 204L1113.5 204Z"/>
+    <circle cx="546" cy="174" r="2.4"/>
+  </g>
+  <g fill="#38bdf8">
+    <circle cx="256" cy="174" r="3" fill-opacity="0">
+      <animate attributeName="cx" values="258;292" dur="1.8s" repeatCount="indefinite"/>
+      <animate attributeName="fill-opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="794" cy="174" r="3" fill-opacity="0">
+      <animate attributeName="cx" values="796;826" dur="1.8s" repeatCount="indefinite"/>
+      <animate attributeName="fill-opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <g font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif">
+    <!-- A - observation vector -->
+    <rect x="40" y="40" width="4" height="14" rx="2" fill="#38bdf8"/>
+    <text x="54" y="52" font-size="11.5" font-weight="700" fill="#93a3c4"
+          textLength="171" lengthAdjust="spacing">OBSERVATION · 23 numbers</text>
+    <g>
+      <rect x="40" y="68" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="73" width="16" height="16" rx="5" fill="#38bdf8"/>
+      <text x="55" y="85" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">4</text>
+      <text x="70" y="85" font-size="10.5" fill="#9fb0d0"
+            textLength="129" lengthAdjust="spacing">queue length per approach</text>
+    </g>
+    <g>
+      <rect x="40" y="99" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="104" width="16" height="16" rx="5" fill="#38bdf8"/>
+      <text x="55" y="116" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">4</text>
+      <text x="70" y="116" font-size="10.5" fill="#9fb0d0"
+            textLength="124" lengthAdjust="spacing">waiting time per approach</text>
+    </g>
+    <g>
+      <rect x="40" y="130" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="135" width="16" height="16" rx="5" fill="#5eead4"/>
+      <text x="55" y="147" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">2</text>
+      <text x="70" y="147" font-size="10.5" fill="#9fb0d0"
+            textLength="106" lengthAdjust="spacing">current phase one-hot</text>
+    </g>
+    <g>
+      <rect x="40" y="161" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="166" width="16" height="16" rx="5" fill="#5eead4"/>
+      <text x="55" y="178" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">1</text>
+      <text x="70" y="178" font-size="10.5" fill="#9fb0d0"
+            textLength="81" lengthAdjust="spacing">green time so far</text>
+    </g>
+    <g>
+      <rect x="40" y="192" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="197" width="16" height="16" rx="5" fill="#f87171"/>
+      <text x="55" y="209" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">4</text>
+      <text x="70" y="209" font-size="10.5" fill="#9fb0d0"
+            textLength="141" lengthAdjust="spacing">emergency flag per approach</text>
+    </g>
+    <g>
+      <rect x="40" y="223" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="228" width="16" height="16" rx="5" fill="#a3e635"/>
+      <text x="55" y="240" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">4</text>
+      <text x="70" y="240" font-size="10.5" fill="#9fb0d0"
+            textLength="93" lengthAdjust="spacing">neighbour pressure</text>
+    </g>
+    <g>
+      <rect x="40" y="254" width="210" height="26" rx="7" fill="#ffffff" fill-opacity="0.05"
+            stroke="#ffffff" stroke-opacity="0.1"/>
+      <rect x="47" y="259" width="16" height="16" rx="5" fill="#a3e635"/>
+      <text x="55" y="271" font-size="10.5" font-weight="700" fill="#0a1020" text-anchor="middle"
+            textLength="6" lengthAdjust="spacing">4</text>
+      <text x="70" y="271" font-size="10.5" fill="#9fb0d0"
+            textLength="81" lengthAdjust="spacing">neighbour phase</text>
+    </g>
+    <g font-size="10.5" fill="#7f90b3">
+      <text x="40" y="316" textLength="145" lengthAdjust="spacing">one vector per junction, built in</text>
+      <text x="40" y="330" textLength="114" lengthAdjust="spacing">src/atsc/envs/spaces.py</text>
+    </g>
+
+    <!-- B - two hidden layers -->
+    <rect x="304" y="40" width="4" height="14" rx="2" fill="#38bdf8"/>
+    <text x="318" y="52" font-size="11.5" font-weight="700" fill="#93a3c4"
+          textLength="134" lengthAdjust="spacing">TWO HIDDEN LAYERS</text>
+    <rect x="304" y="76" width="84" height="196" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+    <rect x="436" y="76" width="84" height="196" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+    <path d="M353 93L471 93M353 93L471 111M353 111L471 93M353 111L471 111M353 111L471 129M353 129L471 111M353 129L471 129M353 129L471 147M353 147L471 129M353 147L471 147M353 147L471 165M353 165L471 147M353 165L471 165M353 165L471 183M353 183L471 165M353 183L471 183M353 183L471 201M353 201L471 183M353 201L471 201M353 201L471 219M353 219L471 201M353 219L471 219M353 219L471 237M353 237L471 219M353 237L471 237M353 237L471 255M353 255L471 237M353 255L471 255"
+          fill="none" stroke="#38bdf8" stroke-opacity="0.16" stroke-width="0.6"/>
+    <g fill="#38bdf8">
+      <circle cx="346" cy="93" r="5.5" fill-opacity="0.35"/>
+      <circle cx="346" cy="111" r="5.5" fill-opacity="0.41"/>
+      <circle cx="346" cy="129" r="5.5" fill-opacity="0.47"/>
+      <circle cx="346" cy="147" r="5.5" fill-opacity="0.53"/>
+      <circle cx="346" cy="165" r="5.5" fill-opacity="0.59"/>
+      <circle cx="346" cy="183" r="5.5" fill-opacity="0.66"/>
+      <circle cx="346" cy="201" r="5.5" fill-opacity="0.72"/>
+      <circle cx="346" cy="219" r="5.5" fill-opacity="0.78"/>
+      <circle cx="346" cy="237" r="5.5" fill-opacity="0.84"/>
+      <circle cx="346" cy="255" r="5.5" fill-opacity="0.9"/>
+      <circle cx="478" cy="93" r="5.5" fill-opacity="0.35"/>
+      <circle cx="478" cy="111" r="5.5" fill-opacity="0.41"/>
+      <circle cx="478" cy="129" r="5.5" fill-opacity="0.47"/>
+      <circle cx="478" cy="147" r="5.5" fill-opacity="0.53"/>
+      <circle cx="478" cy="165" r="5.5" fill-opacity="0.59"/>
+      <circle cx="478" cy="183" r="5.5" fill-opacity="0.66"/>
+      <circle cx="478" cy="201" r="5.5" fill-opacity="0.72"/>
+      <circle cx="478" cy="219" r="5.5" fill-opacity="0.78"/>
+      <circle cx="478" cy="237" r="5.5" fill-opacity="0.84"/>
+      <circle cx="478" cy="255" r="5.5" fill-opacity="0.9"/>
+    </g>
+    <g font-size="12.5" font-weight="700" fill="#38bdf8" text-anchor="middle">
+      <text x="346" y="70" textLength="22" lengthAdjust="spacing">128</text>
+      <text x="478" y="70" textLength="22" lengthAdjust="spacing">128</text>
+    </g>
+    <g font-size="10" fill="#7f90b3" text-anchor="middle">
+      <text x="346" y="290" textLength="28" lengthAdjust="spacing">ReLU</text>
+      <text x="478" y="290" textLength="28" lengthAdjust="spacing">ReLU</text>
+    </g>
+    <text x="304" y="316" font-size="10.5" fill="#7f90b3"
+          textLength="177" lengthAdjust="spacing">shared weights across all four agents</text>
+
+    <!-- C - dueling split, then the combine rule -->
+    <rect x="568" y="40" width="4" height="14" rx="2" fill="#34d399"/>
+    <text x="582" y="52" font-size="11.5" font-weight="700" fill="#93a3c4"
+          textLength="95" lengthAdjust="spacing">DUELING HEAD</text>
+    <rect x="576" y="80" width="208" height="58" rx="14" fill="#0e1a30"
+          stroke="#34d399" stroke-opacity="0.55"/>
+    <text x="596" y="110" font-size="17" font-weight="700" fill="#34d399"
+          textLength="33" lengthAdjust="spacingAndGlyphs">V(s)</text>
+    <text x="596" y="128" font-size="10" fill="#9fb0d0"
+          textLength="96" lengthAdjust="spacing">state value · 1 output</text>
+    <rect x="576" y="210" width="208" height="58" rx="14" fill="#0e1a30"
+          stroke="#fbbf24" stroke-opacity="0.55"/>
+    <text x="596" y="240" font-size="17" font-weight="700" fill="#fbbf24"
+          textLength="53" lengthAdjust="spacingAndGlyphs">A(s, a)</text>
+    <text x="596" y="258" font-size="10" fill="#9fb0d0"
+          textLength="99" lengthAdjust="spacing">advantage · 2 outputs</text>
+    <rect x="568" y="156" width="224" height="36" rx="8" fill="#ffffff" fill-opacity="0.05"
+          stroke="#ffffff" stroke-opacity="0.1"/>
+    <text x="680" y="179" font-size="11.5" font-weight="700" fill="#f1f5fd" text-anchor="middle"
+          textLength="183" lengthAdjust="spacing">Q(s,a) = V(s) + ( A(s,a) − mean A )</text>
+    <g font-size="10.5" fill="#7f90b3">
+      <text x="568" y="316" textLength="173" lengthAdjust="spacing">the mean subtraction keeps V and A</text>
+      <text x="568" y="330" textLength="122" lengthAdjust="spacing">identifiable during training</text>
+    </g>
+    <!-- D - Q values and the argmax -->
+    <rect x="838" y="40" width="4" height="14" rx="2" fill="#22c55e"/>
+    <text x="852" y="52" font-size="11.5" font-weight="700" fill="#93a3c4"
+          textLength="63" lengthAdjust="spacing">Q VALUES</text>
+    <rect x="838" y="124" width="154" height="100" rx="14" fill="#0e1a30" stroke="#2c3d5f"/>
+    <text x="854" y="148" font-size="10.5" font-weight="700" fill="#9fb0d0"
+          textLength="15" lengthAdjust="spacing">NS</text>
+    <text x="976" y="148" font-size="10.5" font-weight="700" fill="#9fb0d0" text-anchor="end"
+          textLength="27" lengthAdjust="spacing">−4.12</text>
+    <rect x="854" y="154" width="122" height="13" rx="5" fill="#ffffff" fill-opacity="0.05"/>
+    <rect x="854" y="154" width="66" height="13" rx="5" fill="#475569"/>
+    <text x="854" y="190" font-size="10.5" font-weight="700" fill="#f1f5fd"
+          textLength="18" lengthAdjust="spacing">EW</text>
+    <text x="976" y="190" font-size="10.5" font-weight="700" fill="#22c55e" text-anchor="end"
+          textLength="27" lengthAdjust="spacing">−2.87</text>
+    <rect x="854" y="196" width="122" height="13" rx="5" fill="#ffffff" fill-opacity="0.05"/>
+    <rect x="854" y="196" width="110" height="13" rx="5" fill="#22c55e"/>
+    <text x="1019" y="166" font-size="9.5" fill="#93a3c4" text-anchor="middle"
+          textLength="32" lengthAdjust="spacing">argmax</text>
+    <g font-size="10.5" fill="#7f90b3">
+      <text x="838" y="316" textLength="91" lengthAdjust="spacing">greedy at test time,</text>
+      <text x="838" y="330" textLength="107" lengthAdjust="spacing">ε-greedy while training</text>
+    </g>
+
+    <!-- E - the request meets the safety layer -->
+    <rect x="1046" y="40" width="4" height="14" rx="2" fill="#f59e0b"/>
+    <text x="1060" y="52" font-size="11.5" font-weight="700" fill="#93a3c4"
+          textLength="87" lengthAdjust="spacing">SAFETY GATE</text>
+    <rect x="1046" y="158" width="126" height="32" rx="8" fill="#ffffff" fill-opacity="0.05"
+          stroke="#ffffff" stroke-opacity="0.1"/>
+    <text x="1109" y="178" font-size="10.5" font-weight="700" fill="#22c55e" text-anchor="middle"
+          textLength="77" lengthAdjust="spacing">REQUEST: EW</text>
+    <rect x="1046" y="214" width="126" height="76" rx="14" fill="#0e1a30"
+          stroke="#f59e0b" stroke-opacity="0.75"/>
+    <text x="1109" y="240" font-size="11.5" font-weight="700" fill="#f59e0b" text-anchor="middle"
+          textLength="77" lengthAdjust="spacing">SAFETY FSM</text>
+    <g font-size="9.5" fill="#9fb0d0" text-anchor="middle">
+      <text x="1109" y="260" textLength="71" lengthAdjust="spacing">may hold, delay,</text>
+      <text x="1109" y="274" textLength="79" lengthAdjust="spacing">or force the switch</text>
+    </g>
+    <text x="1109" y="316" font-size="10" fill="#7f90b3" text-anchor="middle"
+          textLength="116" lengthAdjust="spacing">the FSM has the last word</text>
+
+    <!-- footer -->
+    <rect x="40" y="376" width="1120" height="32" rx="8" fill="#ffffff" fill-opacity="0.05"
+          stroke="#ffffff" stroke-opacity="0.1"/>
+    <text x="600" y="396" font-size="10.5" fill="#7f90b3" text-anchor="middle"
+          textLength="653" lengthAdjust="spacing">Double DQN target · Dueling head · prioritized replay · 19,971 parameters · hidden [128,128] · Huber loss · Adam 5e-4 · gamma 0.99</text>
+  </g>
+</svg>

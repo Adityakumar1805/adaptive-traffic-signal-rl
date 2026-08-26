@@ -1,0 +1,44 @@
+# Keep the build context (and the image) small: the Dockerfile copies only asgi.py,
+# config.yaml, src/ and the pretrained checkpoint, but a large context still has to be
+# uploaded to the daemon before that.
+
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+
+# training and benchmarking artefacts - the live site reads none of them
+outputs/
+models/checkpoints/
+scenarios/
+*.pt
+!models/pretrained/*.pt
+
+# documentation, tests and figures
+docs/
+tests/
+*.md
+!README.md
+*.svg
+*.png
+*.pptx
+*.zip
+*.log
+
+# local-development entrypoints and tooling
+run.py
+run.sh
+run.bat
+requirements.txt
+environment.yml
+pytest.ini
+Dockerfile
+.dockerignore
+render.yaml
+Procfile
+.github/

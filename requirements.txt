@@ -1,0 +1,49 @@
+# ==========================================================================
+#  AI-Based Adaptive Traffic Signal Control System using Reinforcement Learning
+#  Pinned, mutually-compatible, CPU-friendly dependencies (Python 3.10 - 3.12)
+# --------------------------------------------------------------------------
+#  Windows (operator's target):  pip install -r requirements.txt
+#     -> torch resolves to the CPU wheel automatically on Windows/macOS.
+#  Linux CPU:  install torch from the CPU index first, e.g.
+#     pip install torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+#     pip install -r requirements.txt
+#  (The provided run.sh / run.bat handle this for you.)
+# ==========================================================================
+
+# --- Deep learning (CPU is sufficient; GPU optional) ---
+torch==2.2.2
+
+# --- Numerics / data (numpy pinned <2 for ABI safety with torch 2.2 + SUMO) ---
+numpy==1.26.4
+pandas==2.1.4
+matplotlib==3.8.4
+
+# --- RL environment API ---
+gymnasium==0.29.1
+
+# --- Config ---
+PyYAML==6.0.1
+
+# --- Dashboard (FastAPI + WebSocket ASGI server) ---
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# --- Testing ---
+pytest==8.2.0
+
+# --- Optional logging (import-guarded in code; safe to remove) ---
+# tensorboard==2.16.2
+
+# ==========================================================================
+#  SUMO (PRIMARY simulator, but OPTIONAL — the app falls back to a built-in
+#  simulator if SUMO is absent). Recommended install path:
+#    * Windows / macOS / Linux: install SUMO 1.18+ from https://www.eclipse.dev/sumo/
+#      and set the SUMO_HOME environment variable (run.py auto-detects common paths).
+#  The pure-python TraCI / sumolib control libraries below are safe to pip-install
+#  and are used to talk to a running SUMO. They are commented out by default so a
+#  no-SUMO machine still installs cleanly; run.py installs them on demand.
+# --------------------------------------------------------------------------
+# traci==1.18.0
+# sumolib==1.18.0
+# libsumo==1.18.0        # fast headless bindings; needs matching SUMO binaries
+# eclipse-sumo==1.18.0   # pip-provided SUMO binaries (best-effort per platform)

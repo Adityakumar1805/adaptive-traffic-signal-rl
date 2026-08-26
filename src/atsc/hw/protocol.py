@@ -1,0 +1,216 @@
+"""Wire protocol between the Python controller and the hardware node.
+
+Pure functions only — no serial, no threads, no config — so the whole protocol is
+unit-testable without a board attached (see ``tests/test_hardware.py``).
+
+Frames are short ASCII lines terminated by ``\\n``. ASCII was chosen over a packed
+binary format on purpose: a student debugging this can open a serial monitor and
+*read* the traffic, which is worth more than the handful of bytes a binary encoding
+would save at 115200 baud.
+
+Downlink (PC -> node), sentinel ``>``::
+
+    >L,<aspects>,<crc>\\n     lamp command, one char per (intersection, phase)
+
+``aspects`` is ``n_intersections * n_phases`` characters, in topology order, each one
+of ``R`` (red), ``A`` (amber) or ``G`` (green). For the shipped ``ns_ew`` scheme that
+is two characters per intersection — NS then EW — so a 2x2 grid sends 8 characters.
+The whole board is sent in every frame rather than per-lamp deltas, which makes the
+command **idempotent**: a dropped line cannot leave the board out of sync, because the
+next frame restates the complete truth.
+
+Uplink (node -> PC), sentinel ``<``::
+
+    <D,<tls>,<approach>,<crc>\\n      vehicle detected entering an approach
+    <Q,<tls>,<approach>,<n>,<crc>\\n  quantised queue occupancy on an approach
+    <E,<corridor>,<crc>\\n            RF emergency-vehicle preemption request
+    <H,<uptime_ms>,<crc>\\n           heartbeat / liveness
+
+``crc`` is CRC-8 (polynomial 0x07, init 0x00) over the payload — everything after the
+sentinel up to, but excluding, the final comma — as two uppercase hex digits. A frame
+whose CRC does not match is discarded silently; the 433 MHz receiver produces noise
+bursts that would otherwise be read as commands.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable, List, Optional, Tuple
+
+DOWNLINK_SENTINEL = ">"
+UPLINK_SENTINEL = "<"
+
+RED = "R"
+AMBER = "A"
+GREEN = "G"
+
+#: aspect characters a well-formed lamp frame may contain
+ASPECTS = (RED, AMBER, GREEN)
+
+
+# --------------------------------------------------------------------------- #
+# CRC-8
+# --------------------------------------------------------------------------- #
+def crc8(data: bytes | str, poly: int = 0x07, init: int = 0x00) -> int:
+    """CRC-8/ATM over ``data``. Mirrors ``crc8()`` in the Arduino sketch."""
+    if isinstance(data, str):
+        data = data.encode("ascii", errors="replace")
+    crc = init
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            crc = ((crc << 1) ^ poly) & 0xFF if (crc & 0x80) else ((crc << 1) & 0xFF)
+    return crc
+
+
+def _frame(sentinel: str, payload: str) -> bytes:
+    return f"{sentinel}{payload},{crc8(payload):02X}\n".encode("ascii")
+
+
+def _split_checked(line: str, sentinel: str) -> Optional[List[str]]:
+    """Strip the sentinel, verify the CRC, return the payload fields (or ``None``)."""
+    line = line.strip()
+    if len(line) < 4 or not line.startswith(sentinel):
+        return None
+    head, _, crc_text = line[1:].rpartition(",")
+    if not head or len(crc_text) != 2:
+        return None
+    try:
+        if int(crc_text, 16) != crc8(head):
+            return None
+    except ValueError:
+        return None
+    return head.split(",")
+
+
+# --------------------------------------------------------------------------- #
+# Aspect derivation + lamp frames
+# --------------------------------------------------------------------------- #
+def aspect_chars(state: str, current_phase: int, n_phases: int) -> str:
+    """Lamp aspects for one intersection, one character per phase group.
+
+    ``state`` is the :class:`~atsc.envs.phases.SignalState` *value* (``"green"``,
+    ``"yellow"`` or ``"all_red"``). ``current_phase`` is the FSM's ``current``, which
+    during a transition still refers to the phase being **terminated** — so amber is
+    shown on the outgoing group, as traffic engineering requires.
+
+    >>> aspect_chars("green", 0, 2)
+    'GR'
+    >>> aspect_chars("yellow", 0, 2)
+    'AR'
+    >>> aspect_chars("all_red", 1, 2)
+    'RR'
+    """
+    if n_phases < 1:
+        raise ValueError("n_phases must be >= 1")
+    if not (0 <= current_phase < n_phases):
+        raise ValueError(f"current_phase {current_phase} outside [0,{n_phases})")
+    if state == "green":
+        lit = GREEN
+    elif state == "yellow":
+        lit = AMBER
+    else:                      # all_red, or anything unrecognised -> safest aspect
+        lit = RED
+    return "".join(lit if p == current_phase else RED for p in range(n_phases))
+
+
+def encode_lamps(per_intersection: Iterable[Tuple[str, int]], n_phases: int) -> bytes:
+    """Build one ``>L`` frame from ``(state_value, current_phase)`` in topology order."""
+    aspects = "".join(aspect_chars(s, p, n_phases) for s, p in per_intersection)
+    if not aspects:
+        raise ValueError("no intersections given")
+    return _frame(DOWNLINK_SENTINEL, f"L,{aspects}")
+
+
+def decode_lamps(line: str) -> Optional[str]:
+    """Inverse of :func:`encode_lamps`: the aspect string, or ``None`` if invalid.
+
+    Used by the tests and by the loopback link to prove firmware parity.
+    """
+    fields = _split_checked(line, DOWNLINK_SENTINEL)
+    if not fields or fields[0] != "L" or len(fields) != 2:
+        return None
+    aspects = fields[1]
+    if not aspects or any(ch not in ASPECTS for ch in aspects):
+        return None
+    return aspects
+
+
+# --------------------------------------------------------------------------- #
+# Uplink events
+# --------------------------------------------------------------------------- #
+VALID_APPROACHES = ("N", "S", "E", "W")
+VALID_CORRIDORS = ("ns", "ew")
+
+
+@dataclass(frozen=True)
+class UplinkEvent:
+    """One decoded message from the hardware node.
+
+    ``kind`` is ``"detect"``, ``"queue"``, ``"emergency"`` or ``"heartbeat"``; the
+    remaining fields are populated only where they apply.
+    """
+
+    kind: str
+    tls: str = ""
+    approach: str = ""
+    count: int = 0
+    corridor: str = ""
+    uptime_ms: int = 0
+# UPLINK_DECODER_PLACEHOLDER
+def decode_uplink(line: str) -> Optional[UplinkEvent]:
+    """Decode one uplink line. Returns ``None`` for noise, bad CRC or unknown types.
+
+    Silence rather than exceptions is deliberate: this is fed straight from a serial
+    port that shares a breadboard with a 433 MHz receiver, so malformed input is
+    normal operating conditions, not an error.
+    """
+    fields = _split_checked(line, UPLINK_SENTINEL)
+    if not fields:
+        return None
+    kind = fields[0]
+
+    if kind == "D" and len(fields) == 3:
+        tls, approach = fields[1], fields[2].upper()
+        if approach in VALID_APPROACHES and tls:
+            return UplinkEvent("detect", tls=tls, approach=approach)
+        return None
+
+    if kind == "Q" and len(fields) == 4:
+        tls, approach = fields[1], fields[2].upper()
+        if approach not in VALID_APPROACHES or not tls:
+            return None
+        try:
+            count = int(fields[3])
+        except ValueError:
+            return None
+        return UplinkEvent("queue", tls=tls, approach=approach, count=max(0, count))
+
+    if kind == "E" and len(fields) == 2:
+        corridor = fields[1].lower()
+        if corridor in VALID_CORRIDORS:
+            return UplinkEvent("emergency", corridor=corridor)
+        return None
+
+    if kind == "H" and len(fields) == 2:
+        try:
+            uptime = int(fields[1])
+        except ValueError:
+            return None
+        return UplinkEvent("heartbeat", uptime_ms=max(0, uptime))
+
+    return None
+
+
+def encode_uplink(event: UplinkEvent) -> bytes:
+    """Build the uplink line for ``event`` — the firmware's job, used here by tests."""
+    if event.kind == "detect":
+        payload = f"D,{event.tls},{event.approach}"
+    elif event.kind == "queue":
+        payload = f"Q,{event.tls},{event.approach},{event.count}"
+    elif event.kind == "emergency":
+        payload = f"E,{event.corridor}"
+    elif event.kind == "heartbeat":
+        payload = f"H,{event.uptime_ms}"
+    else:
+        raise ValueError(f"unknown event kind '{event.kind}'")
+    return _frame(UPLINK_SENTINEL, payload)

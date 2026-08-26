@@ -1,0 +1,30 @@
+# Render Blueprint - Infrastructure as Code for the live dashboard.
+#
+# https://render.com/docs/blueprint-spec
+#
+# Sync this file once (Render dashboard -> New -> Blueprint -> pick this repository) and
+# every later `git push` to main redeploys the site automatically. Nothing needs to be
+# typed into the Render UI, and no secrets are involved: the app has no API keys, no
+# database and no outbound calls.
+#
+# Why PYTHON_VERSION is pinned: Render's default native Python is now 3.13, and
+# numpy==1.26.4 publishes no cp313 wheel, so an unpinned build fails while trying to
+# compile numpy from source. 3.12.6 has wheels for every pin in requirements-deploy.txt
+# and is inside the project's supported 3.10-3.12 range.
+
+services:
+  - type: web
+    name: adaptive-traffic-signal-rl
+    runtime: python
+    plan: free
+    region: singapore          # nearest region to India; delete this line to use the default (Oregon)
+    branch: main
+    autoDeploy: true           # push to main -> Render rebuilds and redeploys
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: uvicorn asgi:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/state
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: PYTHONUNBUFFERED    # stream logs to the Render console instead of buffering
+        value: "1"

@@ -1,0 +1,186 @@
+# ==========================================================================
+#  Adaptive Traffic Signal Control (RL)  —  single source of truth
+#  Every module reads from here. Change values, not code.
+#  Units: seconds (s), metres (m), metres/second (m/s), vehicles/second (veh/s)
+# ==========================================================================
+
+seed: 42                       # global deterministic seed
+backend: auto                  # auto | sumo | mini   (auto = SUMO if available, else mini)
+
+# --------------------------------------------------------------------------
+# Road network — a grid of signalised intersections (each = one RL agent)
+# --------------------------------------------------------------------------
+network:
+  grid_rows: 2                 # SHIPPED DEFAULT 2x2. Set 3 for a 3x3 grid (retrain!)
+  grid_cols: 2
+  lanes_per_approach: 1        # incoming lanes per approach direction
+  link_length_m: 200           # distance between adjacent intersections
+  phase_scheme: ns_ew          # ns_ew (2 phases: North-South / East-West)  | quad (4 phases)
+
+# --------------------------------------------------------------------------
+# Signal timing & safety (enforced by the environment, not the agent)
+# --------------------------------------------------------------------------
+signal:
+  decision_interval_s: 5       # agent chooses a target phase every N seconds
+  min_green_s: 10              # a green must hold at least this long before switching
+  max_green_s: 60              # force a switch after this long (anti-starvation)
+  yellow_s: 3                  # mandatory amber on every phase change
+  all_red_s: 2                 # mandatory all-red clearance after amber
+
+# --------------------------------------------------------------------------
+# Simulation dynamics
+# --------------------------------------------------------------------------
+sim:
+  step_length_s: 1.0           # simulation resolution
+  saturation_flow_vps: 0.5     # max discharge per green lane (veh/s)  ~1 veh / 2s
+  free_speed_mps: 13.9         # ~50 km/h free-flow speed
+  warmup_s: 30                 # sim seconds before metrics start counting
+  episode_seconds: 1800        # default episode length for evaluation
+
+# --------------------------------------------------------------------------
+# Demand — asymmetric (E-W arterial carries 2.2x the side-street rate) so that
+# adaptivity genuinely helps. Demand is *stationary* within an episode: every
+# scenario below sets time_varying: false, so "rush" means sustained heavy demand.
+# arrival_scale multiplies the base rates below to make density scenarios.
+# --------------------------------------------------------------------------
+demand:
+  base_arrival_vps: 0.10       # base per-source-approach arrival rate (veh/s)
+  arterial_boost: 2.2          # main E-W arterial gets this much more demand (green-wave value)
+  turn_prob: 0.10              # probability a vehicle turns at an intersection (else straight)
+  peak_center_frac: 0.5        # only used if a scenario sets time_varying: true
+  peak_width_frac: 0.2         # gaussian width of the rush peak (unused while all are false)
+
+scenarios:
+  low:    { arrival_scale: 0.35, time_varying: false, description: "Light off-peak traffic" }
+  medium: { arrival_scale: 0.60, time_varying: false, description: "Moderate daytime traffic" }
+  high:   { arrival_scale: 0.90, time_varying: false, description: "Heavy congested traffic" }
+  rush:   { arrival_scale: 1.00, time_varying: false, description: "Rush-hour sustained heavy demand" }
+
+# --------------------------------------------------------------------------
+# Emergency-vehicle preemption
+# --------------------------------------------------------------------------
+emergency:
+  enabled: true
+  preemption: true             # deterministic safe-corridor override
+  vtype_speed_factor: 1.3      # emergency vehicles drive a bit faster
+
+# --------------------------------------------------------------------------
+# Reinforcement learning
+# --------------------------------------------------------------------------
+rl:
+  algo: double_dueling_dqn     # default trainable path
+  nn_backend: auto             # auto | torch | numpy  (auto = PyTorch if installed, else built-in NumPy net)
+  share_parameters: true       # homogeneous agents share one network (fast, stable). false = independent nets
+  neighbor_obs: true           # include neighbour pressures/phases in the state (enables coordination)
+  gamma: 0.99
+  lr: 0.0005
+  batch_size: 64
+  buffer_size: 50000
+  min_buffer: 1000             # start learning after this many transitions
+  target_update_every: 500     # hard target-network sync period (learner steps)
+  train_every: 1               # learner update every N env control-steps
+  grad_clip: 10.0
+  hidden_sizes: [128, 128]
+  double: true
+  dueling: true
+  epsilon_start: 1.0
+  epsilon_end: 0.05
+  epsilon_decay_steps: 22000   # linear decay over this many control-steps
+  per:
+    enabled: true
+    alpha: 0.6                 # prioritisation exponent
+    beta_start: 0.4            # importance-sampling correction start
+    beta_end: 1.0
+    beta_steps: 20000
+    eps: 0.000001
+
+# Optional CTDE upgrade (STRETCH — off by default). See src/atsc/agents/qmix.py
+qmix:
+  enabled: false
+  mixing_embed_dim: 32
+
+# --------------------------------------------------------------------------
+# Reward shaping (see REPORT.md for the exact math)
+#   r_i = -(w_wait * step_delay_i) / normalize  - w_switch * switched_i
+#         + w_emergency * emergencies_cleared_i - w_pressure * pressure_i / normalize
+# --------------------------------------------------------------------------
+reward:
+  w_wait: 1.0
+  w_pressure: 0.30
+  w_switch: 0.20
+  w_emergency: 5.0
+  normalize: 40.0              # scales delay so rewards sit in a friendly range
+
+# --------------------------------------------------------------------------
+# Training
+# --------------------------------------------------------------------------
+train:
+  episodes: 112                # full `python run.py train` — 112 is what produced the
+                               # shipped checkpoint (112 rows in outputs/logs/train.csv)
+  quick_episodes: 8            # `python run.py train --quick` (few CPU minutes)
+  curriculum: [low, medium, high, rush]   # scenarios cycled during training
+  episode_seconds: 1200        # shorter episodes while training (speed)
+  eval_every: 10               # run a quick greedy eval every N episodes
+  checkpoint_dir: models/pretrained
+  log_dir: outputs/logs
+  tensorboard: false           # set true if tensorboard installed
+
+# --------------------------------------------------------------------------
+# Evaluation / benchmarking
+# --------------------------------------------------------------------------
+eval:
+  seeds: [0, 1, 2]             # the 3 seeds behind the shipped outputs/benchmark_*.csv
+                               # (36 runs = 3 controllers x 4 scenarios x 3 seeds)
+  scenarios: [low, medium, high, rush]
+  controllers: [fixed_time, max_pressure, rl]
+  episode_seconds: 1800
+  out_dir: outputs
+  inject_emergency: true       # also measure emergency clearance time
+
+# Fixed-time baseline timing (honest, standard fixed cycle)
+fixed_time:
+  green_split_s: 30            # each phase gets a fixed 30 s green (NS then EW) -> 60 s cycle
+
+# --------------------------------------------------------------------------
+# Dashboard
+# --------------------------------------------------------------------------
+dashboard:
+  host: 127.0.0.1
+  port: 8000
+  open_browser: true
+  default_scenario: medium
+  backend: mini                # dashboard uses the fast built-in sim for a smooth live demo
+  tick_ms: 200                 # server broadcast interval (real time between ticks)
+  chart_window: 120            # points kept on the live line charts
+
+# --------------------------------------------------------------------------
+# Hardware-in-the-loop (OPTIONAL — off by default, and unfinished)
+#
+#   enabled: false  ->  not one line of src/atsc/hw runs, pyserial is not needed,
+#                       and every published result stays bit-for-bit reproducible.
+#
+# Status: the Python side exists and is importable (src/atsc/hw/, protocol in
+# src/atsc/hw/protocol.py). The board and its firmware do not exist yet, so
+# enabled: true currently has nothing to talk to except port: loopback, which
+# echoes frames back for testing. Leave it false.
+#
+# The intended node is an ESP32 driving 24 LEDs through three 74HC595 shift
+# registers (4 intersections x 2 phase groups x R/A/G), reading 8 IR detectors
+# through a PCF8574 I2C expander, and listening on a 433 MHz receiver for the
+# ambulance preemption button.
+#
+# For a 1:1 real-time demo set dashboard.tick_ms: 5000 as well — at the default
+# 200 ms the dashboard advances ~24 simulated seconds per wall second, so the 3 s
+# amber and 2 s all-red would flash past far too quickly to see on the board.
+# --------------------------------------------------------------------------
+hardware:
+  enabled: false               # MASTER SWITCH. true only for a live board demo
+  port: auto                   # auto | loopback | COM5 | /dev/ttyUSB0 | none
+  baud: 115200
+  settle_s: 1.5                # wait after opening the port (an ESP32 reboots on connect)
+  heartbeat_s: 1.0             # resend the lamp frame at least this often (late-boot catch-up)
+  detect_cooldown_s: 0.25      # per-approach debounce for IR detections (0 = trust firmware)
+  lamps: true                  # drive the LED signal heads from the simulation
+  detectors: true              # let real IR detections inject vehicles into the sim
+  rf_preemption: true          # let the 433 MHz button request emergency preemption
+  instrumented_tls: J0_0       # the one intersection wired for detection (ids are J<row>_<col>)

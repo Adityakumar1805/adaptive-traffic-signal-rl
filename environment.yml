@@ -1,0 +1,25 @@
+# Conda alternative to requirements.txt
+#   conda env create -f environment.yml
+#   conda activate atsc-rl
+# CPU-only PyTorch. Install SUMO separately (see README) for the primary backend;
+# the built-in simulator fallback works without it.
+name: atsc-rl
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip=24.0
+  - numpy=1.26.4
+  - pandas=2.1.4
+  - matplotlib=3.8.4
+  - pyyaml=6.0.1
+  - pytorch=2.2.2
+  - cpuonly
+  - pip:
+      - gymnasium==0.29.1
+      - fastapi==0.111.0
+      - uvicorn[standard]==0.30.1
+      - pytest==8.2.0
+      # - traci==1.18.0
+      # - sumolib==1.18.0
