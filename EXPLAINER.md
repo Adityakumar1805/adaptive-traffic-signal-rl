@@ -17,7 +17,7 @@
 >    deliberate and tied to the one honest limitation (§11).
 >
 > Everything else in the brief checks out: **40 Python modules** (`find src -name '*.py'`),
-> **26 unit tests** (6 files in `tests/`), **observation dimension = 23** (`src/atsc/envs/spaces.py`),
+> **144 tests** (13 files in `tests/`; the original 26 in 6 files), **observation dimension = 23** (`src/atsc/envs/spaces.py`),
 > results **Low −15% / Medium −27% / High −49% / Rush −61%, mean ≈38%**
 > (`outputs/benchmark_summary.md`), and the safety machine verified over **18,000 random
 > requests** (`tests/test_phases_safety.py`, 6000 steps × 3 seeds).
@@ -152,21 +152,22 @@ Every dependency below is really pinned in `requirements.txt`.
 | **Python** | 3.10+ | Language | Everything | Standard for ML; the whole stack is Python |
 | **PyTorch** | 2.2.2 | Deep-learning framework | Builds & trains the Dueling DQN when installed (`agents/net.py` `TorchQNet`) | Mature, autograd, matches the declared stack; vs TensorFlow it's more Pythonic and common in RL |
 | **NumPy** | 1.26.4 | Numerical arrays | The whole built-in simulator, PER buffer, *and* a from-scratch DQN fallback (`agents/net.py` `NumpyQNet`) | Universal; lets the system run with zero heavy deps |
-| **Gymnasium** | 0.29.1 | RL environment API | Provides `spaces.Box`/`Discrete` objects and the single-agent adapter (`envs/gym_adapter.py`) | The modern standard RL interface (successor to OpenAI Gym); keeps our env conventional |
+| **Gymnasium** | 0.29.1 | RL environment API | Provides the `spaces.Box`/`Discrete` objects that describe the observation and action spaces (`envs/spaces.py`) | The modern standard RL interface (successor to OpenAI Gym); keeps our env conventional |
 | **FastAPI** | 0.111.0 | Async web framework | Dashboard server + WebSocket streaming (`dashboard/server.py`) | Async + WebSocket out of the box, minimal boilerplate; vs Flask it has native async/WS |
 | **Uvicorn** | 0.30.1 (`[standard]`) | ASGI server | Runs the FastAPI app | The reference ASGI server for FastAPI |
 | **Pandas** | 2.1.4 | Dataframes | Aggregates benchmark results, writes CSV/markdown tables (`eval/benchmark.py`) | Best tool for tabular metric aggregation |
 | **Matplotlib** | 3.8.4 | Plotting | Comparison bar charts, training curve (`eval/plots.py`) | Standard, headless-capable (`Agg` backend) |
 | **PyYAML** | 6.0.1 | YAML parser | Loads `config.yaml` (`config.py`) | Human-readable config; one source of truth |
-| **pytest** | 8.2.0 | Test framework | Runs the 26 unit tests (`tests/`) | De-facto Python testing standard |
+| **pytest** | 8.2.0 | Test framework | Runs the 144 tests (`tests/`) | De-facto Python testing standard |
 | **SUMO + TraCI / libsumo** | (installed separately, optional) | Microscopic traffic simulator + its Python control API | Primary simulator backend (`sim/sumo_backend.py`, `sim/netgen.py`) | SUMO is the academic-standard traffic simulator; TraCI is its real-time control protocol |
 
 Note: **WebSocket** is not a library we install — it is a browser/HTTP protocol; FastAPI
 provides the server side and the browser's built-in `WebSocket` API the client side
-(`dashboard/static/app.js`). The **frontend uses no framework and no third-party JS at all** —
-plain HTML/CSS/JS, with both the network animation *and* the live charts drawn by hand on the
-HTML5 **Canvas** API (`drawLineChart()` in `app.js`). There is no CDN request anywhere, which is
-why the dashboard works with the network cable unplugged.
+(`dashboard/static/js/transport.js`). The **frontend uses no framework and no third-party JS
+at all** — plain HTML/CSS and JavaScript modules, with the network animation, all 18 vehicle
+sprites and the live charts drawn by hand on the HTML5 **Canvas** API
+(`js/renderer.js`, `js/sprites.js`, `js/charts.js`). There is no CDN request anywhere, which
+is why the dashboard works with the network cable unplugged.
 
 **The dependency-optional design (a deliberate engineering choice).** Three subsystems each
 have a heavyweight "primary" and a zero-dependency "fallback", chosen automatically:
@@ -382,7 +383,9 @@ three states — `GREEN`, `YELLOW`, `ALL_RED` — driven once per simulated seco
 Timing from `config.yaml → signal`:
 
 - **min_green_s = 10** — a green must hold ≥ 10 s before any switch.
-- **max_green_s = 60** — a green is forced to end after 60 s (anti-starvation).
+- **max_green_s = 60** — a green is forced to end after 60 s. (Not a full anti-starvation
+  guarantee: the FSM accepts a new request during amber and all-red, so a controller that
+  re-requests the same phase can cancel the change; side streets have waited up to ~113 s.)
 - **yellow_s = 3** — mandatory amber on every change.
 - **all_red_s = 2** — mandatory all-red clearance after amber.
 
@@ -467,7 +470,8 @@ control policy alone, not to luck in the traffic.
 (controller × scenario × seed) it runs one 1800 s episode and records: **average waiting
 time, average queue length, throughput (vehicles completed), average speed, fuel & CO₂
 proxies, and emergency clearance time** (`sim/backend.py:MetricsAccumulator`). Default eval
-uses **5 seeds `[0,1,2,3,4]`** and 4 scenarios (`config.yaml → eval`). It writes
+uses **3 seeds `[0, 1, 2]`** and 4 scenarios (`config.yaml → eval`), always on the built-in
+simulator (`eval.backend: mini`; `--backend sumo` for a SUMO run into `outputs/sumo/`). It writes
 `outputs/benchmark_results.csv`, `benchmark_summary.md`, and the plots.
 
 **Headline results** (`outputs/benchmark_summary.md`, averaged over seeds 0–2; reproduce with
@@ -542,7 +546,6 @@ SUMO is the higher-fidelity path.
   - `traffic_env.py` — `MultiAgentTrafficEnv` (reset/step, reward, render).
   - `phases.py` — `SignalFSM` safety state machine.
   - `spaces.py` — observation builder (the 23 features) + `obs_size`.
-  - `gym_adapter.py` — single-agent Gymnasium view (for tooling/tests).
 - `agents/` — RL brains:
   - `net.py` — `NumpyQNet` (from-scratch dueling net + Adam) and `TorchQNet`; `create_qnet` factory.
   - `double_dqn_agent.py` — `DoubleDQNAgent` (Double DQN + PER + target sync).
@@ -555,10 +558,11 @@ SUMO is the higher-fidelity path.
   - `base.py`, `fixed_time.py`, `max_pressure.py`, `rl_controller.py`, `emergency.py`.
 - `train/` — `trainer.py` (curriculum loop, checkpointing), `curriculum.py`.
 - `eval/` — `benchmark.py`, `metrics.py`, `plots.py`.
-- `dashboard/` — `server.py` (FastAPI+WS), `stdlib_server.py` (fallback), `session.py` (RL-vs-fixed race), `static/{index.html, app.js, styles.css}`.
+- `dashboard/` — `server.py` (FastAPI+WS), `stdlib_server.py` (fallback), `session.py` (RL-vs-fixed race + the compact wire protocol), `assets.py`/`runtime.py` (static files, build id, stats), `static/` (`index.html`, `styles.css`, `sw.js`, `js/{main, transport, model, renderer, sprites, charts, ui}.js`).
+- `vehicles.py` — the 18 vehicle types (Indian mix, drawn sizes), the configurable `traffic_mix`, and the emergency types (ambulance, police car, fire engine).
 
 **Other folders**
-- `tests/` — 6 files, 26 tests: `test_env.py`, `test_phases_safety.py`, `test_reward.py`, `test_replay.py`, `test_controllers.py`, `test_benchmark_math.py`, plus `conftest.py`.
+- `tests/` — the original 6 files / 26 tests (`test_env.py`, `test_phases_safety.py`, `test_reward.py`, `test_replay.py`, `test_controllers.py`, `test_benchmark_math.py`) plus `test_dashboard_session.py`, `test_dashboard_ws.py`, `test_dashboard_model_js.py`, `test_stdlib_server.py`, `test_static_assets.py`, `test_vehicles.py`, `test_agents_compat.py` (144 in total), `conftest.py` and `dashboard_model.py` (a Python mirror of the browser's frame handling).
 - `models/pretrained/` — shipped checkpoint `atsc_2x2.pt` (+ `_final.pt`); portable NumPy-array pickle.
 - `outputs/` — generated CSVs + PNG plots + training logs.
 - `docs/screenshots/` — plots copied for the README.
@@ -683,8 +687,8 @@ SUMO is the higher-fidelity path.
 14. **How do agents coordinate into a green wave?**
     Each agent's state includes neighbour **pressure** and neighbour **phase** (`spaces.py`).
     A junction can pre-empt its arterial green to receive an incoming platoon; when several do
-    this in sequence, cars cross multiple greens without stopping. The dashboard has a live
-    "green wave" indicator.
+    this in sequence, cars cross multiple greens without stopping. On the dashboard you can
+    watch the four junctions' phases side by side.
 
 15. **What's the reward's role in preventing rapid light flicker?**
     The `−0.20·switched` term penalises *initiating* a phase change. Since each change costs a
@@ -708,7 +712,7 @@ SUMO is the higher-fidelity path.
 
 19. **How large is the network / how long does training take?**
     An MLP with hidden layers `[128,128]` (`config.yaml`), tiny by ML standards. Full training
-    is 100 episodes (`train.episodes`), a few minutes on CPU; `--quick` is 8 episodes.
+    is 112 episodes (`train.episodes`), a few minutes on CPU; `--quick` is 8 episodes.
 
 20. **How is the emergency vehicle detected and handled, safely?**
     The backend exposes `emergency_present(intersection, approach)`; `EmergencyController.apply`

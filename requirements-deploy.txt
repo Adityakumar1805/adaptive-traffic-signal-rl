@@ -1,22 +1,64 @@
-# Runtime dependencies for a hosted deployment - deliberately smaller than
-# requirements.txt, which is the local *development* set (it also installs torch,
-# pandas, matplotlib, gymnasium and pytest for training, benchmarking and tests).
+# Runtime dependencies of the hosted dashboard (Render, Docker, Hugging Face Spaces).
 #
-# Nothing here is optional and nothing is missing: the live dashboard imports only
-# numpy + PyYAML from the project side (verified by walking sys.modules after a full
-# session boot, an emergency injection and a scenario change), and fastapi + uvicorn
-# on the serving side.
+# Deliberately much smaller than requirements.txt, which is the local *development* set
+# (torch, pandas, matplotlib, gymnasium and pytest for training, benchmarking and tests).
+# The live site imports only numpy + PyYAML from the project side and fastapi + uvicorn on
+# the serving side; torch is intentionally absent - rl.nn_backend: auto falls back to the
+# from-scratch NumPy dueling network (src/atsc/agents/net.py), which loads the same shipped
+# checkpoint and picks the same greedy actions.
 #
-# torch is intentionally absent. rl.nn_backend: auto falls back to the from-scratch
-# NumPy dueling network in src/atsc/agents/net.py, which loads the same shipped
-# checkpoint (models/pretrained/atsc_2x2.pt) and produces the same greedy actions.
-# That keeps the image ~50x smaller and the whole process inside a 512 MB free tier
-# (measured peak RSS with both simulations running: 41 MiB).
+# EVERY package is pinned, transitive ones included, so a rebuild next month installs exactly
+# what was tested (pip otherwise picks the newest version of anything left open - that is
+# how an unpinned `websockets` can change under an unchanged uvicorn). websockets is held at
+# 13.1, the last release before its legacy server API (the one uvicorn 0.30.1 uses) was
+# deprecated. All 38 have binary wheels for CPython 3.12 on x86-64 Linux, so nothing is
+# compiled during the Render build.
 #
 #   pip install -r requirements-deploy.txt
-#   uvicorn asgi:app --host 0.0.0.0 --port $PORT
+#   uvicorn asgi:app --host 0.0.0.0 --port $PORT --ws-max-size 65536
+#
+# To upgrade: edit the five direct pins, re-resolve the rest with
+#   uv pip compile <direct pins> --python-version 3.12 --no-annotate
+# and run `pytest` plus `python tools/e2e_browser.py --local` before pushing.
 
+# ---- direct dependencies
 numpy==1.26.4
 PyYAML==6.0.1
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
+websockets==13.1
+
+# ---- everything they pull in (resolved for Python 3.12)
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+click==8.5.0
+dnspython==2.8.0
+email-validator==2.3.0
+fastapi-cli==0.0.32
+h11==0.16.0
+httpcore==1.0.9
+httptools==0.8.0
+httpx==0.28.1
+idna==3.20
+jinja2==3.1.6
+markdown-it-py==4.2.0
+markupsafe==3.0.3
+mdurl==0.1.2
+orjson==3.12.0
+pydantic==2.13.5
+pydantic-core==2.46.5
+pygments==2.21.0
+python-dotenv==1.2.4
+python-multipart==0.0.32
+rich==15.0.0
+rich-toolkit==0.20.5
+shellingham==1.5.4
+starlette==0.37.2
+typer==0.27.2
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+ujson==6.0.0
+uvloop==0.23.0
+watchfiles==1.3.0

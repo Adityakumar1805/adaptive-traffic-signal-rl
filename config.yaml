@@ -35,7 +35,7 @@ sim:
   saturation_flow_vps: 0.5     # max discharge per green lane (veh/s)  ~1 veh / 2s
   free_speed_mps: 13.9         # ~50 km/h free-flow speed
   warmup_s: 30                 # sim seconds before metrics start counting
-  episode_seconds: 1800        # default episode length for evaluation
+  episode_seconds: 1800        # episode length of the live dashboard race (and the default elsewhere)
 
 # --------------------------------------------------------------------------
 # Demand — asymmetric (E-W arterial carries 2.2x the side-street rate) so that
@@ -58,11 +58,47 @@ scenarios:
 
 # --------------------------------------------------------------------------
 # Emergency-vehicle preemption
+#   An emergency vehicle waiting at a junction makes that junction request the phase that
+#   serves it (src/atsc/control/emergency.py). The request still goes through the safety
+#   FSM, so amber and all-red are never skipped. Detection is at the stop line: the next
+#   junction is pre-empted when the vehicle reaches it, not before.
 # --------------------------------------------------------------------------
 emergency:
-  enabled: true
+  enabled: true                # dashboard switch: false hides the inject buttons and rejects
+                               # injections. (The benchmark is governed by eval.inject_emergency.)
   preemption: true             # deterministic safe-corridor override
-  vtype_speed_factor: 1.3      # emergency vehicles drive a bit faster
+  vtype_speed_factor: 1.3      # ambulance speed factor - the benchmark's ambulance uses it, so
+                               # changing it changes the published emergency-clearance numbers
+  types:                       # one "Inject" button per type on the dashboard
+    ambulance: { label: "Ambulance",   corridor: ew }                    # speed = vtype_speed_factor
+    police:    { label: "Police car",  corridor: ns, speed_factor: 1.4 }
+    fire:      { label: "Fire engine", corridor: ew, speed_factor: 1.15 }
+
+# --------------------------------------------------------------------------
+# Vehicle mix (relative weights, normalised) - COSMETIC ONLY.
+#   Each vehicle's type is drawn from its own random stream, so this changes what the
+#   dashboard draws and nothing else: arrivals, routes, queues and every benchmark number
+#   are identical for any mix (tests/test_vehicles.py proves it). The default approximates
+#   an Indian urban junction: about half two-wheelers, then autos and cars, few buses/trucks.
+#   Allowed kinds: bike scooter bicycle cycle_rickshaw auto erick car taxi suv van tempo
+#                  truck tractor bus school_bus   (weight 0 removes a kind)
+# --------------------------------------------------------------------------
+traffic_mix:
+  bike: 30            # motorcycle
+  scooter: 22
+  bicycle: 3
+  cycle_rickshaw: 1
+  auto: 10            # auto-rickshaw (CNG three-wheeler)
+  erick: 4            # battery e-rickshaw
+  car: 15
+  taxi: 3
+  suv: 4
+  van: 2
+  tempo: 2.5          # Tata Ace-style mini-truck
+  truck: 1.2
+  tractor: 0.5
+  bus: 1.3
+  school_bus: 0.5
 
 # --------------------------------------------------------------------------
 # Reinforcement learning
@@ -133,9 +169,13 @@ eval:
                                # (36 runs = 3 controllers x 4 scenarios x 3 seeds)
   scenarios: [low, medium, high, rush]
   controllers: [fixed_time, max_pressure, rl]
-  episode_seconds: 1800
+  episode_seconds: 1800        # length of every benchmark episode
   out_dir: outputs
   inject_emergency: true       # also measure emergency clearance time
+  backend: mini                # the published numbers come from the built-in simulator, so
+                               # `run.py eval` uses it even where SUMO is installed; run
+                               # `python run.py eval --backend sumo` for a SUMO benchmark
+                               # (written to outputs/sumo/, never over the published CSVs)
 
 # Fixed-time baseline timing (honest, standard fixed cycle)
 fixed_time:
@@ -149,9 +189,16 @@ dashboard:
   port: 8000
   open_browser: true
   default_scenario: medium
-  backend: mini                # dashboard uses the fast built-in sim for a smooth live demo
+  backend: mini                # the only supported value: two live SUMO instances cannot share
+                               # one process, and the race needs a smooth, instant reset
   tick_ms: 200                 # server broadcast interval (real time between ticks)
   chart_window: 120            # points kept on the live line charts
+  speeds: [0.2, 0.5, 1, 2, 4, 8]   # playback speeds; 1 = one 5 s decision per tick (25x real time)
+  default_speed: 1
+  max_clients: 100             # live WebSocket viewers; more visitors fall back to polling
+  max_active_emergencies: 4    # per network, so button-mashing cannot flood the shared demo
+  queue_render_cap: 24         # queued vehicles per approach sent to the browser (rest = "+n")
+  keyframe_every_s: 10         # full-state resync interval for every viewer (self-healing)
 
 # --------------------------------------------------------------------------
 # Hardware-in-the-loop (OPTIONAL — off by default, and unfinished)
@@ -160,9 +207,9 @@ dashboard:
 #                       and every published result stays bit-for-bit reproducible.
 #
 # Status: the Python side exists and is importable (src/atsc/hw/, protocol in
-# src/atsc/hw/protocol.py). The board and its firmware do not exist yet, so
-# enabled: true currently has nothing to talk to except port: loopback, which
-# echoes frames back for testing. Leave it false.
+# src/atsc/hw/protocol.py), but nothing in the dashboard, training or benchmark
+# calls it yet and the board and its firmware do not exist. Setting
+# enabled: true therefore has no effect today. Leave it false.
 #
 # The intended node is an ESP32 driving 24 LEDs through three 74HC595 shift
 # registers (4 intersections x 2 phase groups x R/A/G), reading 8 IR detectors
@@ -170,8 +217,8 @@ dashboard:
 # ambulance preemption button.
 #
 # For a 1:1 real-time demo set dashboard.tick_ms: 5000 as well — at the default
-# 200 ms the dashboard advances ~24 simulated seconds per wall second, so the 3 s
-# amber and 2 s all-red would flash past far too quickly to see on the board.
+# 200 ms and speed 1 the dashboard advances 25 simulated seconds per wall second, so
+# the 3 s amber and 2 s all-red would flash past far too quickly to see on the board.
 # --------------------------------------------------------------------------
 hardware:
   enabled: false               # MASTER SWITCH. true only for a live board demo

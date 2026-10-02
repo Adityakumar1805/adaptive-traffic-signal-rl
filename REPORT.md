@@ -227,11 +227,17 @@ matches it at high density and surpasses it at rush.
 ## 7. Discussion
 
 - **Coordination emerges.** With neighbour observations enabled, adjacent intersections
-  synchronise their arterial greens, producing green-wave progression that the dashboard's
-  "green wave" indicator highlights live.
-- **Safety is structural, not learned.** Because the phase FSM enforces min/max-green and
-  yellow + all-red clearance, no learned policy — however exploratory — can command an unsafe
-  transition. This separates *optimisation* (the agent) from *safety* (the environment).
+  tend to align their arterial greens. The live dashboard shows the phases of all four
+  junctions side by side; a strict green-wave proof would need platoon-level trajectories,
+  which the point-queue simulator does not produce.
+- **Safety is structural, not learned.** Because the phase FSM enforces yellow + all-red
+  clearance on every change, no learned policy — however exploratory — can command a
+  conflicting green. This separates *optimisation* (the agent) from *safety* (the
+  environment). Two caveats in the FSM itself (`phases.py`, left unchanged because the
+  published numbers depend on it): it accepts a new request during amber / all-red, so a
+  policy can cancel a change mid-clearance and keep a side street waiting beyond
+  `max_green_s` (up to ~113 s observed); and greens after the first last one second longer
+  than configured.
 - **Honest baselines.** Fixed-time uses a standard 30 s split (not crippled); max-pressure is
   a strong, throughput-optimal reference. Beating fixed-time by ~38% on average (61% at rush)
   against these baselines is a meaningful result.
@@ -244,13 +250,22 @@ matches it at high density and surpasses it at rush.
    greedy policy can be whipsawed by sharp within-episode surges. We therefore model rush hour
    as *sustained* heavy demand. Adding a short-horizon arrival-rate estimate to the state is
    expected to restore performance under surges (see Future Work).
-2. **Point-queue fidelity (fallback).** The built-in simulator is a store-and-forward model
-   without lane-changing or spill-back; SUMO (the default backend) provides full microscopic
-   dynamics and is the recommended path for final numbers.
+2. **Point-queue fidelity.** The built-in simulator is a store-and-forward model without
+   lane-changing or spill-back, and every published number comes from it (`eval.backend:
+   mini`). SUMO provides full microscopic dynamics; `python run.py eval --backend sumo`
+   repeats the benchmark there (into `outputs/sumo/`). On SUMO the shipped policy still beats
+   fixed-time clearly but loses to max-pressure at low and medium demand.
 3. **Grid scale.** Results are reported on a 2×2 grid for a fast, reliable demo; 3×3 is
    supported via config but requires a full retrain.
-4. **Max-pressure gap at low density.** At very light demand the analytic max-pressure rule is
-   marginally better than the learned policy; the practical impact is small (a few seconds).
+4. **Max-pressure gap at low and medium density.** At light and medium demand the analytic
+   max-pressure rule beats the learned policy (19.2 s vs 22.3 s, 22.5 s vs 25.2 s); RL edges
+   ahead at high demand (35.2 s vs 35.6 s) and wins clearly at rush (43.9 s vs 50.5 s).
+5. **Training reproducibility.** Retraining with the same seeds is repeatable on one
+   machine but not across NumPy versions; the published results come from the single shipped
+   checkpoint, from which `run.py eval` regenerates them exactly. The trainer also treats the
+   episode time limit as a true terminal state.
+6. **Pre-emption at the stop line.** The emergency override acts once the vehicle is queued
+   at a junction, not on approach, and it runs for every controller (fixed-time included).
 
 ---
 

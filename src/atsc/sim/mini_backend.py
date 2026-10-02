@@ -23,12 +23,14 @@ is to let the whole RL system â€” training, evaluation and the live dashboard â€
 """
 from __future__ import annotations
 
+import bisect
 import math
-from collections import defaultdict, deque
-from typing import Deque, Dict, Iterable, List, Optional, Tuple
+from collections import deque
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from atsc import vehicles as vehicle_catalogue
 from atsc.seeding import make_rng
 from atsc.sim.backend import (
     APPROACH_TO_TRAVEL,
@@ -45,21 +47,32 @@ _TRAVEL_DELTA = {"N": (-1, 0), "S": (1, 0), "E": (0, 1), "W": (0, -1)}
 # perpendicular travel options for turns
 _PERPENDICULAR = {"N": ("E", "W"), "S": ("E", "W"), "E": ("N", "S"), "W": ("N", "S")}
 
-
-_VEHICLE_KINDS = ("car", "bike", "auto", "van", "bus", "truck", "erick")
-_VEHICLE_WEIGHTS = (0.34, 0.18, 0.18, 0.10, 0.06, 0.06, 0.08)
 # a vehicle arriving on approach N is travelling south; used only for dashboard heading
 _OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 
 
-def _pick_kind(rng) -> str:
-    """Weighted random vehicle type (cars most common). Emergencies are set explicitly.
+def mix_cdf(probs) -> List[float]:
+    """Normalised cumulative distribution, computed exactly as ``Generator.choice`` does."""
+    cdf = np.asarray(probs, dtype=np.float64).cumsum()
+    cdf /= cdf[-1]
+    return cdf.tolist()
+
+
+def _pick_kind(rng, kinds: Sequence[str], cdf: List[float]) -> str:
+    """Weighted random vehicle type from the configured ``traffic_mix``.
 
     Drawn from a *separate* RNG stream (see :meth:`MiniBackend.reset`) because the kind is
     cosmetic: keeping it off the main stream means arrivals, routes and therefore every
-    reported KPI stay bit-identical whether or not this dashboard feature exists.
+    reported KPI stay bit-identical whatever the mix is. Emergencies are set explicitly.
+    One uniform draw + a right-bisect of the cdf is exactly what
+    ``rng.choice(len(kinds), p=probs)`` does, without re-validating ``p`` on every spawn.
     """
-    return _VEHICLE_KINDS[int(rng.choice(len(_VEHICLE_KINDS), p=_VEHICLE_WEIGHTS))]
+    return kinds[bisect.bisect_right(cdf, rng.random())]
+
+
+def vehicle_number(vid: str) -> int:
+    """Numeric part of a vehicle id (``"v17" -> 17``, ``"EMG18" -> 18``); ids share one counter."""
+    return int(vid.lstrip("vEMG"))
 
 
 class Vehicle:
@@ -67,11 +80,12 @@ class Vehicle:
 
     __slots__ = (
         "id", "legs", "leg_index", "wait_time", "is_emergency",
-        "depart_time", "distance", "speed_factor", "kind",
+        "depart_time", "distance", "speed_factor", "kind", "exit_dir",
     )
 
     def __init__(self, vid: str, legs: List[Tuple[str, str]], depart_time: float,
-                 is_emergency: bool = False, speed_factor: float = 1.0, kind: str = "car") -> None:
+                 is_emergency: bool = False, speed_factor: float = 1.0, kind: str = "car",
+                 exit_dir: str = "") -> None:
         self.id = vid
         self.legs = legs                 # list of (intersection_id, arrival_approach)
         self.leg_index = 0
@@ -81,6 +95,7 @@ class Vehicle:
         self.distance = 0.0
         self.speed_factor = speed_factor
         self.kind = kind
+        self.exit_dir = exit_dir         # travel direction when it leaves the grid (drawing only)
 
     @property
     def tls(self) -> str:
@@ -104,6 +119,15 @@ class MiniBackend(SimBackend):
         self._step_len = float(cfg.sim.step_length_s)
         self._warmup = float(cfg.sim.warmup_s)
         self._emergency_speed = float(cfg.emergency.vtype_speed_factor)
+        # cosmetic vehicle-type mix (separate RNG stream; never affects the traffic itself)
+        self._mix_kinds, mix_probs = vehicle_catalogue.traffic_mix(cfg)
+        self._mix_cdf = mix_cdf(mix_probs)
+
+        # optional observers for the dashboard (pure callbacks: they never change the state).
+        # on_enter(veh, travel_s, dest_tls, dest_appr) - a vehicle starts crossing a link
+        # on_complete(veh, at_tls)                      - it leaves the network
+        self._on_enter: Optional[Callable] = None
+        self._on_complete: Optional[Callable] = None
 
         # entry points: (tls_id, approach) where that side is a network boundary
         self._entries: List[Tuple[str, str]] = []
@@ -158,8 +182,12 @@ class MiniBackend(SimBackend):
     # ------------------------------------------------------------------ #
     # route generation
     # ------------------------------------------------------------------ #
-    def _build_route(self, entry_tls: str, entry_approach: str) -> List[Tuple[str, str]]:
-        """Build a corridor route from a boundary entry, with an occasional turn."""
+    def _build_route(self, entry_tls: str, entry_approach: str) -> Tuple[List[Tuple[str, str]], str]:
+        """Build a corridor route from a boundary entry, with an occasional turn.
+
+        Returns ``(legs, exit_dir)``: the junctions visited with their arrival approaches, and
+        the direction of travel when the vehicle leaves the grid (used only for drawing).
+        """
         rng = self._rng
         rows, cols = self.topo.grid_rows, self.topo.grid_cols
         turn_prob = float(self._scenario.get("turn_prob", 0.0))
@@ -181,7 +209,7 @@ class MiniBackend(SimBackend):
             dr, dc = _TRAVEL_DELTA[travel]
             r, c = r + dr, c + dc
             arrival_approach = TRAVEL_TO_APPROACH[travel]
-        return legs
+        return legs, travel
 
     def _arrival_rate(self, approach: str) -> float:
         """Per-second Poisson rate for a boundary entry, with arterial boost + time profile."""
@@ -216,12 +244,13 @@ class MiniBackend(SimBackend):
             rate = self._arrival_rate(approach) * self._step_len
             n = rng.poisson(rate)
             for _ in range(int(n)):
-                legs = self._build_route(iid, approach)
+                legs, exit_dir = self._build_route(iid, approach)
                 if not legs:
                     continue
                 self._veh_counter += 1
                 veh = Vehicle(f"v{self._veh_counter}", legs, self._t,
-                              kind=_pick_kind(self._kind_rng))
+                              kind=_pick_kind(self._kind_rng, self._mix_kinds, self._mix_cdf),
+                              exit_dir=exit_dir)
                 self._queues[(veh.tls, veh.approach)].append(veh)
                 outcome.arrivals += 1
 
@@ -287,11 +316,15 @@ class MiniBackend(SimBackend):
             self._acc.record_completion(veh.wait_time, veh.is_emergency, time_in_net)
             if veh.is_emergency:
                 outcome.emergency_cleared.append(veh.id)
+            if self._on_complete is not None:
+                self._on_complete(veh, at_tls)
         else:
             dest_tls, dest_appr = veh.legs[veh.leg_index]
             speed = self._free_speed * veh.speed_factor
             travel_time = self._link_length / max(1e-6, speed)
             self._transit.append((veh, travel_time, dest_tls, dest_appr))
+            if self._on_enter is not None:
+                self._on_enter(veh, travel_time, dest_tls, dest_appr)
 
     # ------------------------------------------------------------------ #
     # queries
@@ -373,10 +406,57 @@ class MiniBackend(SimBackend):
         return {"time": self._t, "intersections": intersections, "moving": moving}
 
     def _queued_kinds(self, tls_id: str, approach: str, cap: int = 16) -> List[str]:
-        """Kinds of the vehicles queued on one approach, closest to the stop line first.
-        Emergency vehicles report as ``ambulance`` so they stay visible while waiting."""
-        return ["ambulance" if v.is_emergency else v.kind
-                for v in list(self._queues[(tls_id, approach)])[:cap]]
+        """Kinds of the vehicles queued on one approach, closest to the stop line first."""
+        q = self._queues[(tls_id, approach)]
+        return [q[i].kind for i in range(min(cap, len(q)))]
+
+    # ------------------------------------------------------------------ #
+    # read-only views for the live dashboard (never change the simulation)
+    # ------------------------------------------------------------------ #
+    def set_event_hooks(self, on_enter: Optional[Callable] = None,
+                        on_complete: Optional[Callable] = None) -> None:
+        """Register observers (see ``__init__``). Pass nothing to detach both.
+
+        The callbacks only *receive* vehicles; they must not mutate them. They exist so the
+        dashboard can stream link entries and exits as events instead of resending every
+        vehicle position each tick: a vehicle that entered a link at ``t0`` with travel time
+        ``T`` is on that link exactly while ``t0 <= t < t0 + T``.
+        """
+        self._on_enter, self._on_complete = on_enter, on_complete
+
+    def queue_snapshot(self, cap: int) -> List[Tuple[int, List[Vehicle]]]:
+        """``(length, the first `cap` vehicles, stop line first)`` per approach, in topology
+        order x N, E, S, W. The vehicles are the live objects: callers must only read them."""
+        out: List[Tuple[int, List[Vehicle]]] = []
+        for iid in self.topo.order:
+            for a in APPROACHES:
+                q = self._queues[(iid, a)]
+                out.append((len(q), [q[i] for i in range(min(cap, len(q)))]))
+        return out
+
+    def transit_snapshot(self) -> List[Tuple[Vehicle, float, float, str, str]]:
+        """``(vehicle, remaining_s, travel_s, dest_tls, dest_appr)`` for every vehicle on a link."""
+        free = self._free_speed
+        link = self._link_length
+        return [(veh, remaining, link / max(1e-6, free * veh.speed_factor), dest_tls, dest_appr)
+                for veh, remaining, dest_tls, dest_appr in self._transit]
+
+    def present_wait(self) -> Tuple[float, int]:
+        """Accumulated waiting time and count of every vehicle still in the network."""
+        total, count = 0.0, 0
+        for q in self._queues.values():
+            for v in q:
+                total += v.wait_time
+            count += len(q)
+        for v, _r, _t, _a in self._transit:
+            total += v.wait_time
+            count += 1
+        return total, count
+
+    def active_emergencies(self) -> int:
+        """Emergency vehicles currently in the network (queued or on a link)."""
+        n = sum(1 for q in self._queues.values() for v in q if v.is_emergency)
+        return n + sum(1 for v, _r, _t, _a in self._transit if v.is_emergency)
 
     @staticmethod
     def _boundary_point(dest, approach: str, link: float) -> Tuple[float, float]:
@@ -391,26 +471,40 @@ class MiniBackend(SimBackend):
     # ------------------------------------------------------------------ #
     # emergencies
     # ------------------------------------------------------------------ #
-    def inject_emergency(self, corridor: Optional[str] = None) -> Optional[str]:
-        """Spawn an emergency vehicle traversing a full corridor of the grid."""
-        rng = self._rng
+    def inject_emergency(self, corridor: Optional[str] = None,
+                         kind: str = "ambulance") -> Optional[str]:
+        """Spawn an emergency vehicle traversing a full corridor of the grid.
+
+        ``corridor`` is ``"ew"`` (eastbound along row ``rows // 2``) or ``"ns"`` (southbound
+        down column ``cols // 2``). ``kind`` is an emergency kind from :mod:`atsc.vehicles`;
+        the default ambulance with ``emergency.vtype_speed_factor`` is exactly the vehicle the
+        published benchmark injects. No random number is drawn, so injecting never shifts the
+        arrival stream.
+        """
+        if kind not in vehicle_catalogue.EMERGENCY_KINDS:
+            raise ValueError(f"'{kind}' is not an emergency kind; choose from "
+                             f"{list(vehicle_catalogue.EMERGENCY_KINDS)}")
         rows, cols = self.topo.grid_rows, self.topo.grid_cols
         if corridor is None:
             corridor = "ew"
         if corridor == "ew":
             row = rows // 2
             entry_tls, entry_appr = f"J{row}_0", "W"     # eastbound across the middle row
-        else:
+        elif corridor == "ns":
             col = cols // 2
             entry_tls, entry_appr = f"J0_{col}", "N"     # southbound down the middle column
+        else:
+            raise ValueError(f"corridor must be 'ew' or 'ns', got {corridor!r}")
         # emergencies always run straight across a full corridor (no turns)
         legs = self._straight_corridor(entry_tls, entry_appr)
         if not legs:
             return None
+        speed = (self._emergency_speed if kind == "ambulance"
+                 else vehicle_catalogue.speed_factor(self.cfg, kind))
         self._veh_counter += 1
         vid = f"EMG{self._veh_counter}"
-        veh = Vehicle(vid, legs, self._t, is_emergency=True,
-                      speed_factor=self._emergency_speed, kind="ambulance")
+        veh = Vehicle(vid, legs, self._t, is_emergency=True, speed_factor=speed, kind=kind,
+                      exit_dir=APPROACH_TO_TRAVEL[entry_appr])
         self._queues[(veh.tls, veh.approach)].append(veh)
         return vid
 

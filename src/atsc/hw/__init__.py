@@ -17,7 +17,7 @@ Typical use from the session layer::
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Sequence
 
 from atsc.hw.bridge import HardwareBridge
 from atsc.hw.link import (

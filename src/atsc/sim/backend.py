@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 # --------------------------------------------------------------------------- #
 # Directions.  An *approach* is the side of the intersection a vehicle arrives
@@ -149,9 +149,12 @@ class StepOutcome:
 class MetricsAccumulator:
     """Aggregates per-second simulation state into episode-level KPIs.
 
-    All averages ignore the warm-up period. ``avg_waiting_time`` is per vehicle
-    (the headline metric); ``avg_queue`` is the time-averaged number of halted
-    vehicles per intersection.
+    The time-averaged quantities (queue, vehicles present, speed, fuel, CO2) ignore the
+    warm-up period. The per-vehicle tallies (``avg_waiting_time``, ``throughput``) count every
+    vehicle that completes, including the few that finish during warm-up, plus - via
+    :meth:`record_present_wait` at episode end - every vehicle still in the network.
+    ``avg_waiting_time`` is per vehicle (the headline metric); ``avg_queue`` is the
+    time-averaged number of halted vehicles per intersection.
     """
 
     def __init__(self, n_intersections: int, warmup_s: float = 0.0) -> None:
@@ -201,6 +204,10 @@ class MetricsAccumulator:
         """Fold in vehicles still present at episode end so the average is unbiased."""
         self._total_wait += total_wait
         self._n_vehicles += count
+
+    def wait_totals(self) -> Tuple[float, int]:
+        """``(total accumulated wait, vehicles counted)`` so far - read-only, for live views."""
+        return self._total_wait, self._n_vehicles
 
     def as_dict(self) -> Dict[str, float]:
         seconds = max(1, self._seconds)
@@ -290,8 +297,9 @@ class SimBackend(abc.ABC):
 
     # -- emergencies ------------------------------------------------------ #
     @abc.abstractmethod
-    def inject_emergency(self, corridor: Optional[str] = None) -> Optional[str]:
-        """Spawn one emergency vehicle; return its id (or None if not possible)."""
+    def inject_emergency(self, corridor: Optional[str] = None,
+                         kind: str = "ambulance") -> Optional[str]:
+        """Spawn one emergency vehicle of ``kind``; return its id (or None if not possible)."""
 
     # -- convenience ------------------------------------------------------ #
     def finalize(self) -> None:
@@ -299,10 +307,11 @@ class SimBackend(abc.ABC):
         return None
 
     def intersection_pressure(self, tls_id: str) -> float:
-        """Max-pressure style pressure = incoming queue minus downstream queue.
+        """Max-pressure style pressure = incoming queue minus half the downstream queue.
 
-        Used by the max-pressure baseline and as an optional reward term. Positive
-        pressure means vehicles are piling up faster than they can leave.
+        Used in the reward and the neighbour observation. Positive pressure means vehicles
+        are piling up faster than they can leave. (The max-pressure *controller* uses its own
+        per-phase pressure, see :mod:`atsc.control.max_pressure`.)
         """
         topo = self.topo.get(tls_id)
         incoming = sum(self.queue(tls_id, a) for a in APPROACHES)

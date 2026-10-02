@@ -2,14 +2,17 @@
 
 Runs episodes across the density curriculum, stores transitions in prioritized replay,
 updates the Double+Dueling DQN each step, periodically evaluates greedily, and checkpoints
-the best model. Deterministic per-episode seeds make every run reproducible.
+the best model. Deterministic per-episode seeds make a run repeatable on one machine and
+library stack; a different NumPy / PyTorch build gives a different model (README,
+"Reproducibility"). The last transition of an episode is stored as terminal although the
+episode only hit its time limit - kept as is because that is how the shipped model was
+trained.
 """
 from __future__ import annotations
 
 import csv
 import time
 from pathlib import Path
-from typing import Dict, Optional
 
 import numpy as np
 

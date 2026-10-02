@@ -1,20 +1,23 @@
 """Emergency-vehicle preemption — a deterministic safe-corridor override.
 
 Real preemption systems (e.g. Opticom) are rule-based overrides layered on top of the
-normal controller, and that is exactly what this implements. When an emergency vehicle is
-detected on an approach to an intersection, the environment's FSM for that intersection
-is forced towards the phase that serves the emergency's approach — creating a green
-corridor ahead of the vehicle. The safety FSM still inserts yellow + all-red, so the
+normal controller, and that is exactly what this implements. When an emergency vehicle
+(ambulance, police car or fire engine — any vehicle with ``is_emergency``) is waiting on an
+approach of an intersection, that intersection's FSM is asked for the phase that serves the
+approach, overriding the base controller's request for that decision. Detection happens at
+the stop line: the next junction on the corridor is pre-empted when the vehicle reaches it,
+not while it is still on the link. The safety FSM still inserts yellow + all-red, so the
 override never causes an unsafe transition.
 
-This override wraps *any* base controller (RL, fixed-time, max-pressure), and the RL
-reward additionally gives a bonus for quickly clearing emergencies, so the learned policy
-is emergency-aware even before the override kicks in. The evaluation harness measures each
-emergency vehicle's clearance time to quantify the benefit.
+This override wraps *any* base controller (RL, fixed-time, max-pressure) — the benchmark and
+the dashboard attach it to every controller, so clearance-time differences come from how
+congested each controller has left the corridor. The RL reward additionally gives a bonus for
+clearing emergencies, so the learned policy is emergency-aware even before the override kicks
+in.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set
+from typing import List, Optional, Set
 
 from atsc.sim.backend import APPROACHES
 

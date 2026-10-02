@@ -5,6 +5,11 @@ greatest *pressure* (upstream queue minus downstream queue). Max-pressure is pro
 throughput-optimal under idealised assumptions and is a much tougher baseline than
 fixed-time — beating it is a meaningful result for the RL controller.
 
+For a served approach the upstream queue is the queue on that approach; the downstream queue
+is the one its straight-through traffic joins at the next junction (vehicles arriving from
+the north travel south, so they join the southern neighbour's North approach). Boundary exits
+have no downstream queue.
+
 Reference: Varaiya, "Max pressure control of a network of signalized intersections",
 Transportation Research Part C, 2013.
 """
@@ -13,7 +18,7 @@ from __future__ import annotations
 from typing import Dict
 
 from atsc.control.base import Controller
-from atsc.sim.backend import APPROACHES, OPPOSITE_TRAVEL_APPROACH
+from atsc.sim.backend import APPROACH_TO_TRAVEL, TRAVEL_TO_APPROACH
 
 
 class MaxPressureController(Controller):
@@ -33,10 +38,11 @@ class MaxPressureController(Controller):
                 pressure = 0.0
                 for approach in phase.green_approaches:
                     up = backend.queue(iid, approach)
-                    neigh = it.neighbors.get(approach)
+                    travel = APPROACH_TO_TRAVEL[approach]          # e.g. from N -> heading S
+                    neigh = it.neighbors.get(travel)               # the junction it drives to
                     down = 0
                     if neigh is not None:
-                        down = backend.queue(neigh, OPPOSITE_TRAVEL_APPROACH[approach])
+                        down = backend.queue(neigh, TRAVEL_TO_APPROACH[travel])
                     pressure += up - down
                 if pressure > best_pressure:
                     best_pressure = pressure

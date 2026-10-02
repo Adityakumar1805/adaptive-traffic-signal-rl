@@ -42,3 +42,10 @@ Dockerfile
 render.yaml
 Procfile
 .github/
+
+# ...but the dashboard's own front-end files are needed, whatever their extension
+!src/atsc/dashboard/static/
+!src/atsc/dashboard/static/**
+
+# developer tooling
+tools/

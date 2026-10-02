@@ -37,8 +37,13 @@ scenarios/generated/
 
 # outputs/ IS tracked on purpose: README.md, REPORT.md and docs/VIVA_MASTER.md quote
 # these exact CSVs/plots, so the published repo has to carry its own evidence.
-# Only the throwaway --quick training log is ignored.
+# Only throwaway artefacts are ignored: the --quick training log and curve, benchmarks on
+# other backends (run.py eval --backend sumo), and browser-check screenshots.
 outputs/logs/train_quick.csv
+outputs/training_curve_quick.png
+outputs/sumo/
+outputs/auto/
+outputs/e2e/
 
 # Local-only bulk artefacts (share the zip via a GitHub Release instead)
 *.zip
@@ -70,3 +75,6 @@ runs/
 # Do NOT ignore the shipped pretrained model:
 !models/pretrained/
 !models/pretrained/**
+# ...except the few-minute models `run.py train --quick` writes next to it
+models/pretrained/*_quick.pt
+models/pretrained/*_quick_final.pt

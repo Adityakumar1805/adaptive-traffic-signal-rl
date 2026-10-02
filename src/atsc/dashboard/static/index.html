@@ -1,129 +1,159 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-build="__ATSC_BUILD__" data-transport="__ATSC_TRANSPORT__">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Adaptive Traffic Signal Control Using Multi-Agent Deep Reinforcement Learning</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="Live race on identical traffic: four multi-agent deep reinforcement learning signal controllers against a fixed-time plan, on a 2x2 grid with Indian traffic and emergency vehicles.">
+  <title>Adaptive Traffic Signal Control · Multi-Agent Deep RL · Live</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script type="module" src="/static/js/main.js"></script>
 </head>
 <body>
-  <!-- ===== Control bar ===== -->
+  <a class="skip" href="#arena">Skip to the live grids</a>
+
   <header class="topbar">
     <div class="brand">
-      <div class="signal-dot" id="brandDot"></div>
+      <div class="signal-dot" aria-hidden="true"><i></i><i></i><i></i></div>
       <div>
-        <h1>ADAPTIVE TRAFFIC SIGNAL CONTROL</h1>
-        <p class="sub">Multi-agent Deep RL &nbsp;·&nbsp; <span id="gridLabel">2×2</span> grid &nbsp;·&nbsp; live race vs fixed-time</p>
+        <h1>Adaptive Traffic Signal Control</h1>
+        <p class="sub">Multi-agent deep RL · <span id="gridLabel">2×2</span> grid · live race against fixed-time on identical traffic</p>
       </div>
     </div>
 
-    <div class="controls">
-      <div class="ctl-group">
-        <label>Scenario</label>
-        <select id="scenario">
+    <div class="controls" role="group" aria-label="Simulation controls">
+      <div class="ctl">
+        <label for="scenario">Scenario</label>
+        <select id="scenario" name="scenario">
           <option value="low">Low</option>
           <option value="medium" selected>Medium</option>
           <option value="high">High</option>
           <option value="rush">Rush hour</option>
         </select>
       </div>
-      <div class="ctl-group">
-        <label>Transport</label>
-        <div class="btn-row">
-          <button id="playPause" class="btn primary">Pause</button>
-          <button id="stepBtn" class="btn">Step</button>
-          <button id="resetBtn" class="btn">Reset</button>
+      <div class="ctl">
+        <span class="ctl-label" id="playbackLabel">Playback</span>
+        <div class="btn-row" role="group" aria-labelledby="playbackLabel">
+          <button id="playPause" type="button" class="btn primary" aria-pressed="true">Pause</button>
+          <button id="stepBtn" type="button" class="btn" title="Advance one decision interval">Step</button>
+          <button id="resetBtn" type="button" class="btn" title="Restart the episode">Reset</button>
         </div>
       </div>
-      <div class="ctl-group">
-        <label>Speed <span id="speedLabel" class="mono">1×</span></label>
-        <input type="range" id="speed" min="1" max="8" step="1" value="1" />
+      <div class="ctl speed">
+        <label for="speed">Speed <output id="speedOut" for="speed">1×</output></label>
+        <input id="speed" name="speed" type="range" min="0" max="5" step="1" value="2" aria-valuetext="1×">
       </div>
-      <div class="ctl-group">
-        <label>&nbsp;</label>
-        <button id="emergencyBtn" class="btn emergency">🚨 Inject ambulance</button>
+      <div class="ctl">
+        <span class="ctl-label" id="injectLabel">Dispatch an emergency vehicle</span>
+        <div class="btn-row" id="injectRow" role="group" aria-labelledby="injectLabel"></div>
       </div>
     </div>
   </header>
 
-  <div id="ambBanner" class="amb-banner" hidden>🚑 AMBULANCE ACTIVE — signals are giving it a priority green corridor</div>
+  <main>
+    <div id="emBanner" class="em-banner" role="status" hidden>
+      <span class="beacon" aria-hidden="true"></span><span id="emBannerText">Emergency vehicle on the road</span>
+    </div>
 
-  <!-- ===== KPI strip ===== -->
-  <section class="kpis">
-    <div class="kpi hero" id="kpiWait">
-      <div class="kpi-label">Waiting-time reduction</div>
-      <div class="kpi-value mono"><span id="waitImpr">–</span><span class="unit">%</span></div>
-      <div class="kpi-foot">RL vs fixed-time · same traffic</div>
-    </div>
-    <div class="kpi" id="kpiQueue">
-      <div class="kpi-label">Queue reduction</div>
-      <div class="kpi-value mono"><span id="queueImpr">–</span><span class="unit">%</span></div>
-      <div class="kpi-foot">avg halted / intersection</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Throughput (RL / fixed)</div>
-      <div class="kpi-value mono"><span id="thruRl">0</span><span class="slash">/</span><span id="thruFt" class="muted">0</span></div>
-      <div class="kpi-foot">vehicles cleared</div>
-    </div>
-    <div class="kpi" id="greenWaveCard">
-      <div class="kpi-label">Green wave</div>
-      <div class="kpi-value"><span id="greenWave" class="badge off">OFF</span></div>
-      <div class="kpi-foot">coordinated arterial progression</div>
-    </div>
-  </section>
+    <p id="untrained" class="notice" hidden>No trained checkpoint was found on this server, so the RL grid is running an <strong>untrained</strong> policy.</p>
 
-  <!-- ===== Network race ===== -->
-  <section class="arena">
-    <figure class="net-panel rl">
-      <figcaption>
-        <span class="tag rl-tag">RL CONTROLLER</span>
-        <span class="readout mono"><span id="rlWait">0</span>s wait · <span id="rlQueue">0</span> q</span>
-      </figcaption>
-      <canvas id="netRL" width="460" height="460"></canvas>
-    </figure>
-    <div class="vs">VS</div>
-    <figure class="net-panel ft">
-      <figcaption>
-        <span class="tag ft-tag">FIXED-TIME</span>
-        <span class="readout mono"><span id="ftWait">0</span>s wait · <span id="ftQueue">0</span> q</span>
-      </figcaption>
-      <canvas id="netFT" width="460" height="460"></canvas>
-    </figure>
-  </section>
+    <section class="arena" id="arena" aria-label="The two networks, side by side">
+      <figure class="net rl">
+        <figcaption>
+          <span class="tag rl">RL agents</span>
+          <span class="readout">wait <b data-k="rl-wait">–</b> s · queue <b data-k="rl-queue">–</b> · done <b data-k="rl-thru">0</b></span>
+        </figcaption>
+        <div class="stage" id="stageRL">
+          <canvas id="netRL" role="img" aria-label="Road grid controlled by the four reinforcement-learning agents, animated live"></canvas>
+        </div>
+      </figure>
+      <figure class="net ft">
+        <figcaption>
+          <span class="tag ft">Fixed-time</span>
+          <span class="readout">wait <b data-k="ft-wait">–</b> s · queue <b data-k="ft-queue">–</b> · done <b data-k="ft-thru">0</b></span>
+        </figcaption>
+        <div class="stage" id="stageFT">
+          <canvas id="netFT" role="img" aria-label="The same road grid and traffic under a fixed-time signal plan, animated live"></canvas>
+        </div>
+      </figure>
+    </section>
 
-  <div class="legend">
-    <span class="lg"><i style="background:#8bd6ff"></i>Bike</span>
-    <span class="lg"><i style="background:#dbe8ff"></i>Car</span>
-    <span class="lg"><i style="background:#ffc93c"></i>Taxi</span>
-    <span class="lg"><i style="background:#1e9e5a"></i>Auto</span>
-    <span class="lg"><i style="background:#2f7fd6"></i>E-rick</span>
-    <span class="lg"><i style="background:#9be7bf"></i>Van</span>
-    <span class="lg"><i style="background:#ffd766"></i>Bus</span>
-    <span class="lg"><i style="background:#ff9d5c"></i>Truck</span>
-    <span class="lg"><i class="amb"></i>Ambulance</span>
-  </div>
+    <section class="kpis" aria-label="Live results: RL agents compared with fixed-time on the same traffic">
+      <article class="kpi hero">
+        <h2 class="kpi-label">Average waiting time</h2>
+        <p class="kpi-value"><span data-k="wait-change">–</span></p>
+        <p class="kpi-detail"><span class="rl">RL <b data-k="wait-rl">–</b> s</span><span class="ft">fixed <b data-k="wait-ft">–</b> s</span></p>
+        <p class="kpi-foot">RL vs fixed-time · lower is better</p>
+      </article>
+      <article class="kpi">
+        <h2 class="kpi-label">Average queue</h2>
+        <p class="kpi-value"><span data-k="queue-change">–</span></p>
+        <p class="kpi-detail"><span class="rl">RL <b data-k="queue-rl">–</b></span><span class="ft">fixed <b data-k="queue-ft">–</b></span></p>
+        <p class="kpi-foot">vehicles per junction · lower is better</p>
+      </article>
+      <article class="kpi">
+        <h2 class="kpi-label">Throughput</h2>
+        <p class="kpi-value"><span data-k="thru-change">–</span></p>
+        <p class="kpi-detail"><span class="rl">RL <b data-k="thru-rl">0</b></span><span class="ft">fixed <b data-k="thru-ft">0</b></span></p>
+        <p class="kpi-foot">trips completed · higher is better</p>
+      </article>
+      <article class="kpi">
+        <h2 class="kpi-label">Emergency clearance</h2>
+        <p class="kpi-value small"><span data-k="em-change">–</span></p>
+        <p class="kpi-detail"><span class="rl">RL <b data-k="em-rl">–</b> s</span><span class="ft">fixed <b data-k="em-ft">–</b> s</span></p>
+        <p class="kpi-foot">time through the grid · cleared <b data-k="em-n">0 / 0</b></p>
+      </article>
+    </section>
 
-  <!-- ===== Live charts (native canvas, no external library) ===== -->
-  <section class="charts">
-    <div class="chart-card">
-      <h3>Average waiting time <span class="hint">lower is better</span></h3>
-      <div class="chart-box"><canvas id="chartWait"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <h3>Average queue length <span class="hint">lower is better</span></h3>
-      <div class="chart-box"><canvas id="chartQueue"></canvas></div>
-    </div>
-  </section>
+    <section class="legend" aria-labelledby="legendTitle">
+      <h2 id="legendTitle">Vehicles <span class="hint">on the RL grid right now · India drives on the left</span></h2>
+      <ul id="legendList"></ul>
+    </section>
+
+    <section class="charts" aria-label="Episode so far">
+      <figure class="chart">
+        <figcaption>Average waiting time (s) <span class="hint">lower is better</span></figcaption>
+        <div class="chart-box"><canvas id="chartWait" role="img" aria-label="Average waiting time over the episode"></canvas></div>
+      </figure>
+      <figure class="chart">
+        <figcaption>Average queue per junction <span class="hint">lower is better</span></figcaption>
+        <div class="chart-box"><canvas id="chartQueue" role="img" aria-label="Average queue per junction over the episode"></canvas></div>
+      </figure>
+    </section>
+
+    <section class="about" aria-labelledby="aboutTitle">
+      <h2 id="aboutTitle">What you are looking at</h2>
+      <p>Both grids get exactly the same vehicles at the same moments. On the left, four Double + Dueling DQN agents — one per junction — choose the next green phase every few seconds; on the right, a fixed-time plan cycles its phases on a timer. A safety state machine inserts the amber and all-red on both sides, and on both sides an emergency vehicle pre-empts the signal as soon as it reaches the stop line. Vehicle types are cosmetic: they change the picture, never the traffic.</p>
+      <p class="links"><a href="https://github.com/Adityakumar1805/adaptive-traffic-signal-rl" rel="noopener">Source code and report on GitHub</a> · <a href="/healthz">server health</a></p>
+    </section>
+  </main>
 
   <footer class="statusbar">
-    <span id="connDot" class="conn off"></span>
-    <span id="statusText" class="mono">connecting…</span>
-    <span class="spacer"></span>
-    <span class="mono">elapsed <span id="elapsed">0</span>s / <span id="epLen">0</span>s</span>
-    <span class="spacer"></span>
-    <span class="mono">NN: <span id="nnBackend">–</span> · model <span id="ckpt">–</span></span>
+    <span id="connDot" class="conn off" aria-hidden="true"></span>
+    <span id="statusText" role="status" aria-live="polite">connecting…</span>
+    <span class="sep" aria-hidden="true"></span>
+    <span class="ep">episode <b id="elapsed">0</b> / <span id="epLen">1800</span> s
+      <progress id="epProgress" max="1800" value="0" aria-label="Episode progress"></progress></span>
+    <span class="sep hide-sm" aria-hidden="true"></span>
+    <span class="hide-sm">model <b id="ckpt">–</b> · <span id="nnBackend">–</span></span>
+    <span class="grow"></span>
+    <span id="rtt" class="hide-sm"></span>
   </footer>
 
-  <script src="/static/app.js"></script>
+  <div id="toast" class="toast" role="alert" hidden></div>
+  <div id="announce" class="sr-only" aria-live="polite"></div>
+
+  <div id="wake" class="wake" hidden>
+    <div class="wake-card" role="status" aria-live="polite">
+      <div class="wake-signal" aria-hidden="true"><i></i><i></i><i></i></div>
+      <h2 id="wakeTitle">Waking up the server…</h2>
+      <p id="wakeText">This free demo goes to sleep when nobody is watching. Starting it again takes up to a minute — the page connects by itself as soon as it is up.</p>
+      <p class="wake-meta"><span id="wakeElapsed">0</span> s · attempt <span id="wakeAttempt">1</span></p>
+    </div>
+  </div>
+
+  <noscript><p class="notice">This live dashboard needs JavaScript. The results are also in the project README.</p></noscript>
 </body>
 </html>

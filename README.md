@@ -9,7 +9,7 @@
 &nbsp;
 <a href="https://render.com/deploy?repo=https://github.com/Adityakumar1805/adaptive-traffic-signal-rl"><img alt="Deploy your own copy on Render" src="https://img.shields.io/badge/Deploy%20your%20own-Render-46e3b7?style=for-the-badge&labelColor=0b1120"></a>
 
-<sub>Free instance: if it has been idle for a while the first request takes about 50 s to wake it. Everything after that is real time.</sub>
+<sub>Free instance: if it has been idle for a while the first request takes about a minute to wake it (returning visitors see a "Waking up the server…" screen). Everything after that is real time.</sub>
 
 <img src="docs/assets/hero.svg" alt="Multi-agent deep reinforcement learning for adaptive traffic signal control: four Double and Dueling DQN agents on a 2x2 grid, neighbour-aware, safety-gated, ambulance-priority" width="100%">
 
@@ -17,7 +17,7 @@
   <img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/Python-3.10%20%E2%80%93%203.12-3776AB?logo=python&logoColor=white">
   <img alt="PyTorch 2.2 with a NumPy fallback" src="https://img.shields.io/badge/PyTorch-2.2%20%C2%B7%20NumPy%20fallback-EE4C2C?logo=pytorch&logoColor=white">
   <img alt="SUMO optional" src="https://img.shields.io/badge/SUMO-optional-00A0A0">
-  <img alt="26 unit tests passing" src="https://img.shields.io/badge/unit%20tests-26%20passing-22c55e">
+  <img alt="152 tests passing" src="https://img.shields.io/badge/tests-152%20passing-22c55e">
   <img alt="36 benchmark runs" src="https://img.shields.io/badge/benchmark-36%20runs-38bdf8">
   <img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-64748b">
 </p>
@@ -27,10 +27,12 @@
 Four **Double + Dueling DQN** agents — one per junction of a 2 × 2 signalised grid — learn to
 cut average waiting time by **15 % at light demand and 61 % at rush hour** against a fixed-time
 controller. A safety finite-state machine makes conflicting greens impossible by construction,
-and an approach-side ambulance detector clears an emergency corridor **3.5× faster**. It runs on
+and emergency preemption gets an ambulance through the grid up to **3.5× faster** (rush hour). It runs on
 **SUMO** when SUMO is installed and on a **built-in point-queue simulator** when it isn't, and
 ships a real-time dashboard that races the learned policy against the fixed-time baseline on
-the same traffic, arrival for arrival.
+the same traffic, arrival for arrival — drawn as Indian traffic (two-wheelers, autos,
+e-rickshaws, buses, tractors…) driving on the left, with ambulances, police cars and fire
+engines you can dispatch yourself.
 
 ```bash
 python run.py demo          # dashboard on http://127.0.0.1:8000 — nothing else to configure
@@ -45,12 +47,17 @@ python run.py demo          # dashboard on http://127.0.0.1:8000 — nothing els
 No install, no SUMO, no checkpoint to train — the hosted instance runs the same shipped
 model as the local demo. Three things worth doing in the first minute:
 
-1. Set **Scenario** to **Rush** and watch the right-hand grid spill back along the
-   arterial while the left-hand one keeps its queues short.
-2. Press **Inject ambulance**. The RL side clears a corridor; the fixed-time side keeps
-   running its 30-second split.
-3. Drop the **Speed** to 1× and step through a phase change to see the amber and the
-   all-red the safety layer inserts.
+1. Set **Scenario** to **Rush hour** and watch the queues on the fixed-time grid (right)
+   outgrow the road — the `+15` badges count the vehicles that no longer fit on screen —
+   while the RL grid (left) keeps them short.
+2. Under **Dispatch an emergency vehicle**, press **Ambulance**, **Police car** or **Fire
+   engine**. The same vehicle enters *both* grids and both pre-empt their signals for it,
+   exactly as in the benchmark; the difference you see is how long it is stuck in traffic
+   before it reaches a stop line.
+3. Drop the **Speed** to 0.2× and press **Pause** / **Step** around a phase change to see
+   the 3 s amber and the 2 s all-red the safety layer inserts.
+
+The bottom bar says **live · streaming** while the WebSocket is up.
 
 It is a shared simulation, deliberately: whoever else has the page open sees the same
 race and can press the same buttons. Deployment details, the free-tier caveats and how to
@@ -105,23 +112,52 @@ near it.
 One browser tab, two networks, the same arrivals fed to both: the learned policy on the
 left, the fixed-time controller on the right. The queues you can see are the whole argument.
 
-![Live dashboard network view: the RL-controlled 2x2 grid keeps short queues while the fixed-time grid spills back along the arterial](docs/screenshots/network_render_rl_vs_fixed.png)
+![The live dashboard: the two 2x2 grids racing on identical rush-hour traffic, both completely on the first screen, with the KPI cards comparing RL with fixed-time in the column beside them](docs/screenshots/dashboard_desktop.png)
 
-| Control | What it does |
+| Control / panel | What it does |
 |---|---|
-| **Scenario** | Low / Medium / High / Rush — swaps the arrival rates live |
-| **Play · Pause · Step** | Run freely, freeze, or advance exactly one 5 s decision |
-| **Speed** | 1× to 8× |
-| **Inject ambulance** | Spawns an emergency vehicle in *both* networks so you can watch preemption and the baseline's failure side by side |
-| **KPI cards** | Live waiting-time and queue improvement, throughput, green-wave indicator |
-| **Live charts** | Waiting time and queue length, RL against fixed-time, drawn on a native canvas |
+| **Scenario** | Low / Medium / High / Rush hour — restarts the race with those arrival rates |
+| **Pause · Step · Reset** | Freeze, advance exactly one 5 s decision, or restart the episode |
+| **Speed** | 0.2× to 8× (1× = one 5 s decision per 200 ms tick, 25× real time) |
+| **Dispatch an emergency vehicle** | Ambulance, police car or fire engine (configurable) into *both* grids; the banner names it and the junction it pre-empts, and tells you when it is through the RL grid but still stuck in fixed-time traffic |
+| **KPI cards** | RL's change against fixed-time — waiting time, queue, throughput — with the same sign convention as the results table (−26.5 % = 26.5 % less), and the emergency clearance time (compared only over vehicles that have cleared both grids). On a laptop they sit beside the grids, so the whole race and the numbers fit on one screen |
+| **Vehicles** | All 18 vehicle types, drawn to scale, with how many of each are on the RL grid right now |
+| **Charts** | Waiting time and queue length over the episode, RL against fixed-time |
 
-![Emergency preemption: an ambulance is detected on approach and the corridor ahead of it is cleared](docs/screenshots/network_render_ambulance.png)
+![One ambulance dispatched to both grids: on the RL grid it is already clearing junction J1_0; on the fixed-time grid the same junction is pre-empted while the ambulance is still stuck in the queue that the +12 badge counts; the emergency banner heads the column of KPI cards](docs/screenshots/network_render_ambulance.png)
 
-The server is FastAPI + WebSocket when FastAPI is importable and a zero-dependency stdlib
-polling server when it isn't — same HTML, same JavaScript, same four endpoints. The charts
-are hand-drawn on `<canvas>` on purpose: no chart library, no CDN, no network access needed
-after install.
+**What is drawn is exactly what is simulated.** Each vehicle has a kind from a configurable
+Indian traffic mix (`traffic_mix` in `config.yaml`: about half two-wheelers, then cars,
+autos and e-rickshaws, a few buses, trucks, tempos and tractors). Kinds are cosmetic — they
+come from their own random stream, so changing the mix never changes the traffic or a
+published number. The browser receives the moment every vehicle leaves a queue and enters
+a link, and from those it reconstructs every queue, every vehicle on a link and every
+vehicle crossing a junction for any instant between two frames; a test checks that this
+reconstruction equals the simulator's real state second by second. Vehicles keep to the
+left, slow vehicles to the kerb lane, two-wheelers pair up in a lane, and emergency
+vehicles flash.
+
+<details>
+<summary><b>How the page talks to the server</b></summary>
+
+* One WebSocket, `/ws`. The server sends a `hello` (geometry, vehicle catalogue,
+  scenarios) and then one frame per 200 ms tick: a *keyframe* (full state) every 10 s or
+  after a reset, otherwise a *delta* with only what changed — about 0.7 KB at the default
+  medium 1× (rush 8×: 4 KB), against 8–11 KB of full state per tick before.
+* A heartbeat every 2 s while paused, a ping every 15 s, a 7 s watchdog, and reconnection
+  with exponential back-off (0.5 s → 15 s, with jitter). A viewer that falls 25 frames
+  behind is resynchronised with a keyframe instead of being sent a growing backlog.
+* If WebSockets are blocked on the visitor's network, the page falls back to polling
+  `/api/state` once a second (**live · polling**) and keeps retrying the socket.
+* A service worker caches the page so that a returning visitor sees **Waking up the
+  server…** while a sleeping free instance boots, instead of a blank tab. It is network-first,
+  so it never serves stale code while the server answers.
+* Without FastAPI the project falls back to a zero-dependency standard-library server that
+  serves the same page and polls.
+
+</details>
+
+<p align="center"><img src="docs/screenshots/dashboard_phone.png" alt="The dashboard on a phone: compact controls, the emergency banner, the RL grid fully visible on the first screen, the status bar reading live · streaming" width="300"></p>
 
 ---
 
@@ -136,14 +172,17 @@ difference you see is the controller and nothing else.
 | Sees | nothing | its own 4 queues and waits, its phase, green-so-far, 4 emergency flags, and its neighbours' pressures and phases |
 | Coordinates | not at all | through those neighbour features — no central controller, no message passing |
 | Reacts to a surge | on the next scheduled turn | on the next 5 s decision |
-| Reacts to an ambulance | not at all | the corridor is pre-empted on approach |
+| Reacts to an ambulance | the shared pre-emption override, once the vehicle is at a stop line | the same override, plus four emergency flags in its observation and a reward for clearing it |
 | Waiting time at rush | 113.0 s | **43.9 s** |
 | Code | [`control/fixed_time.py`](src/atsc/control/fixed_time.py) | [`control/rl_controller.py`](src/atsc/control/rl_controller.py) + [`agents/net.py`](src/atsc/agents/net.py) |
 
 What the two share is the part that must not be negotiable: **both** drive the same safety
 FSM, so both pay the same 3 s amber and 2 s all-red, and neither can produce a conflicting
-green. The agents are not allowed to win by cheating the interlocks — and because
-`max_green_s: 60` is enforced against them too, they cannot starve a side street either.
+green. The agents are not allowed to win by cheating the interlocks. One honest caveat:
+`max_green_s: 60` ends a long green, but the FSM also accepts a new request during the amber
+and all-red, so a controller that keeps asking for the same phase can cancel the change and
+keep a side street waiting longer (up to about 113 s in the benchmark runs) — see
+[Known limitations](#known-limitations).
 
 A third controller, **max-pressure**, is in the benchmark but not on the dashboard. It
 beats the agents at low and medium demand; the results table above says so out loud.
@@ -156,11 +195,11 @@ beats the agents at low and medium demand; the results table above says so out l
 |---|---|---|
 | Learning | PyTorch 2.2 (Double + Dueling DQN, prioritized replay) | a from-scratch NumPy dueling net with manual backprop |
 | Simulation | SUMO 1.18+ through TraCI | a built-in point-queue simulator behind the same interface |
-| Web server | FastAPI + `uvicorn[standard]`, WebSocket push | `http.server` from the standard library, polling |
-| Frontend | hand-written HTML, CSS and `<canvas>` JavaScript | — (there is no framework and no CDN to lose) |
+| Web server | FastAPI + `uvicorn[standard]`, WebSocket push of compact deltas | `http.server` from the standard library, polling |
+| Frontend | hand-written HTML, CSS and `<canvas>` JavaScript in ES modules; all 18 vehicle sprites drawn in code | — (there is no framework and no CDN to lose) |
 | Numerics | NumPy 1.26, pandas + matplotlib for the benchmark plots | — |
 | Config | one `config.yaml`, read by every module | — |
-| Tests | pytest, 26 tests | — |
+| Tests | pytest, 152 tests (the original 26 + protocol, server, vehicle and page tests) and a Playwright browser check | — |
 | Hosting | Render free plan, defined in [`render.yaml`](render.yaml) | the same [`Dockerfile`](Dockerfile) on Spaces / Fly / Railway |
 
 Three of those fallbacks are load-bearing rather than decorative: the hosted site runs
@@ -196,14 +235,19 @@ pip install -r requirements.txt
 
 python run.py doctor         # environment and dependency check, prints what is missing
 python run.py demo           # train-if-needed, then open the live dashboard
-python run.py train --quick  # 8 episodes, a few CPU minutes
-python run.py train          # full 112-episode curriculum -> models/pretrained/atsc_2x2.pt
-python run.py eval           # 36-run benchmark -> outputs/*.csv and the KPI plots
+python run.py train --quick  # 8 episodes, a few CPU minutes -> models/pretrained/atsc_2x2_quick.pt
+python run.py train --overwrite  # full 112-episode curriculum; REPLACES the shipped model
+python run.py eval           # 36-run benchmark -> outputs/*.csv, summary and KPI plots
+python run.py eval --backend sumo   # the same benchmark on SUMO -> outputs/sumo/
 python run.py sim            # watch the trained policy in SUMO-GUI (needs SUMO)
+pytest                       # the test suite
+python tools/e2e_browser.py --local   # headless-browser check of the dashboard (needs playwright)
 ```
 
-Every one of these reads `config.yaml` and nothing else. There are no command-line knobs
-that silently override it.
+Every one of these reads `config.yaml`; the few flags above only choose *what* to run, and
+any command accepts `--debug` to print a full traceback. A plain `train` refuses to
+overwrite the shipped checkpoint (and the training log the README quotes) unless you pass
+`--overwrite`.
 
 </details>
 
@@ -252,35 +296,42 @@ an ambulance still gets its amber and all-red before the cross street loses its 
 |---|---|
 | **Multi-agent, multi-intersection** | One Double + Dueling DQN per junction on a 2 × 2 grid (`grid_rows`/`grid_cols` scale it), each observing its neighbours, so green-waves emerge instead of being scripted |
 | **Safety by construction** | The phase FSM owns the lamps; the policy only makes requests. Unit-tested over 18,000 randomised steps |
-| **Emergency preemption** | Detected on approach, corridor forced through the same safety gate, clearance time measured as a KPI |
+| **Emergency preemption** | Detected at the stop line, corridor forced through the same safety gate, clearance time measured as a KPI; ambulance, police car and fire engine on the dashboard |
 | **Honest benchmarking** | Not just fixed-time: also **max-pressure**, a controller that is near-optimal for throughput — and it wins at low demand, which the results report says out loud |
 | **Runs on any machine** | SUMO ↔ built-in simulator, PyTorch ↔ a from-scratch NumPy dueling network with a portable checkpoint format, FastAPI ↔ a stdlib HTTP server. Three fallbacks, one behaviour |
-| **Reproducible** | One seed in `config.yaml`, fixed evaluation seeds, tracked CSVs. The published numbers regenerate |
+| **Reproducible** | One seed in `config.yaml`, fixed evaluation seeds, tracked CSVs. `run.py eval` regenerates the published numbers byte for byte from the shipped checkpoint (retraining does not — see [Known limitations](#known-limitations)) |
 
 ---
 
 ## Repository map
 
 ```
-run.py · run.bat · run.sh        one entry point, two one-click launchers
+run.py · run.bat · run.sh        one entry point, two one-click launchers (pick Python 3.10-3.12)
 config.yaml                      every number the project uses, in one place
 requirements.txt · environment.yml · pytest.ini
 asgi.py · render.yaml            hosted deployment: entrypoint + Render Blueprint
-Dockerfile · Procfile · requirements-deploy.txt
+Dockerfile · Procfile · requirements-deploy.txt (every package pinned)
+CHANGELOG.md                     what changed in each release
 
 src/atsc/
   config.py · seeding.py · logging_utils.py    config loading, determinism, logs
+  vehicles.py  vehicle catalogue: 18 Indian vehicle types, traffic mix, emergency types
   sim/         SUMO backend, built-in point-queue simulator, net generator, SUMO autodetect
   envs/        traffic_env.py (multi-agent env) · phases.py (safety FSM) · spaces.py (observations)
   agents/      dueling DQN, prioritized replay, Double-DQN learner, Torch and NumPy nets, QMIX
   control/     fixed-time · max-pressure · RL · emergency preemption
   train/       curriculum trainer and checkpointing
   eval/        the 36-run benchmark harness, metrics, plots
-  dashboard/   FastAPI + WebSocket server, stdlib fallback, static UI
+  dashboard/   session.py (the race + wire protocol) · server.py (FastAPI/WebSocket) ·
+               stdlib_server.py (fallback) · runtime.py, assets.py (headers, static files,
+               page templating shared by both servers) · static/ (index.html, styles.css,
+               sw.js, js/: main, transport, model, renderer, sprites, charts, ui)
   hw/          serial bridge for an LED signal board — Python side only, inert while disabled
 
 models/pretrained/atsc_2x2.pt    the shipped checkpoint: 313 KB, 112 training episodes
-tests/                           26 unit tests: env, safety, reward, replay, controllers, benchmark maths
+tests/                           152 tests: the original 26 (env, safety, reward, replay,
+                                 controllers, benchmark maths) + protocol, server, vehicles, page
+tools/                           e2e_browser.py (Playwright check) · bench_server.py (tick/payload/load)
 outputs/                         the CSVs, summary and plots this README quotes — tracked on purpose
 docs/assets/ · docs/screenshots/ the diagrams and stills above
 ```
@@ -322,14 +373,18 @@ signal:    { decision_interval_s: 5, min_green_s: 10, max_green_s: 60, yellow_s:
 demand:    { base_arrival_vps: 0.10, arterial_boost: 2.2 }      # the E-W arterial carries 2.2x
 rl:        { algo: double_dueling_dqn, neighbor_obs: true, share_parameters: true }
 reward:    { w_wait: 1.0, w_pressure: 0.30, w_switch: 0.20, w_emergency: 5.0 }
-emergency: { enabled: true, preemption: true }
+emergency: { enabled: true, preemption: true, types: { ambulance, police, fire } }
+traffic_mix: { bike: 30, scooter: 22, car: 15, auto: 10, ... }  # cosmetic: what is drawn
+dashboard: { tick_ms: 200, speeds: [0.2, 0.5, 1, 2, 4, 8], max_clients: 100 }
 qmix:      { enabled: false }        # stretch goal: centralised training, decentralised execution
 hardware:  { enabled: false }        # no board is built yet; nothing in src/atsc/hw runs while false
 seed: 42
 ```
 
 The safety numbers are enforced by the environment, not learned and not negotiable: the
-agent cannot ask for a 4 s green, and no configuration makes the amber optional.
+agent cannot ask for a 4 s green, and no configuration makes the amber optional. The
+shipped checkpoint only fits the `rl` / `network` settings it was trained with; change
+those and loading it stops with a message naming the mismatch and how to retrain.
 
 ---
 
@@ -338,11 +393,15 @@ agent cannot ask for a 4 s green, and no configuration makes the amber optional.
 | Symptom | Fix |
 |---|---|
 | "Python not found" | Install Python 3.10–3.12 and tick *Add to PATH* |
+| You only have Python 3.13+ | The pinned PyTorch 2.2.2 / NumPy 1.26.4 have no wheels for it; install 3.12 alongside (the launchers pick it up, or `PYTHON=python3.12 ./run.sh`) |
+| `./run.sh: Permission denied` | `chmod +x run.sh` (or `bash run.sh`) |
 | The dashboard did not open | Browse to <http://127.0.0.1:8000> manually |
 | "No trained model" | `python run.py train --quick` — a few CPU minutes |
 | Port 8000 is busy | Change `dashboard.port` in `config.yaml` |
 | You want the SUMO view | Install SUMO 1.18+, set `SUMO_HOME`, then `python run.py doctor` |
-| The live demo takes ~50 s to load | Expected: the free instance sleeps after 15 min idle. Reload once |
+| The live demo takes ~a minute to load | Expected: the free instance sleeps after 15 min idle. Returning visitors see "Waking up the server…" and the page connects by itself |
+| The bottom bar says **live · polling** | WebSockets are blocked on your network (proxy, VPN, antivirus); the page polls instead and keeps retrying the socket |
+| "RL checkpoint does not match config.yaml" | You changed an `rl` / `network` setting the shipped model depends on: change it back, or `python run.py train --quick` |
 | Your own deploy fails building numpy | Set `PYTHON_VERSION=3.12.6` — `render.yaml` already does |
 | Anything else | `python run.py doctor` prints exactly what is missing and what it fell back to |
 
@@ -350,11 +409,11 @@ agent cannot ask for a 4 s green, and no configuration makes the amber optional.
 
 ## Deploy your own live copy
 
-The dashboard is one long-lived Python process: FastAPI serves four endpoints and an
-`asyncio` task pushes a snapshot to every browser every 200 ms. That rules out GitHub
-Pages (it cannot execute Python) and rules out serverless functions (an invocation cannot
-hold a WebSocket open or keep the broadcaster alive between requests). It wants a small
-always-on container.
+The dashboard is one long-lived Python process: FastAPI serves the page, a JSON API and a
+WebSocket, and an `asyncio` task advances the race every 200 ms and pushes a compact frame
+to every browser. That rules out GitHub Pages (it cannot execute Python) and serverless
+functions (an invocation cannot hold a WebSocket open or keep the broadcaster alive between
+requests). It wants a small always-on container.
 
 **Render's free plan** is the fit: WebSockets work, no card is needed, and it redeploys
 on every push to `main`. The service is defined in code, so there is nothing to fill in
@@ -362,8 +421,9 @@ by hand:
 
 ```yaml
 # render.yaml
-startCommand: uvicorn asgi:app --host 0.0.0.0 --port $PORT
 buildCommand: pip install -r requirements-deploy.txt
+startCommand: uvicorn asgi:app --host 0.0.0.0 --port $PORT --ws-max-size 65536 --ws-ping-interval 20 --ws-ping-timeout 20
+healthCheckPath: /healthz
 autoDeploy: true
 ```
 
@@ -374,18 +434,22 @@ on.
 | File | What it is for |
 |---|---|
 | [`asgi.py`](asgi.py) | the entrypoint. `build_app()` is a factory, so the package has no module-level `app`; this exposes one without calling `uvicorn.run()` or opening a browser |
-| [`requirements-deploy.txt`](requirements-deploy.txt) | four runtime pins — numpy, PyYAML, fastapi, uvicorn. **No torch**: the NumPy network loads the same checkpoint |
-| [`render.yaml`](render.yaml) | the Render Blueprint, free plan, auto-deploy from `main`, Python pinned to 3.12.6 |
-| [`Dockerfile`](Dockerfile) | Hugging Face Spaces, Fly.io, Railway or `docker run`; non-root, `${PORT:-7860}` |
+| [`requirements-deploy.txt`](requirements-deploy.txt) | the runtime set with **every package pinned**, transitive ones included (38, all binary wheels). **No torch**: the NumPy network loads the same checkpoint |
+| [`render.yaml`](render.yaml) | the Render Blueprint, free plan, auto-deploy from `main`, Python pinned to 3.12.6, health check on `/healthz` |
+| [`Dockerfile`](Dockerfile) | Hugging Face Spaces, Fly.io, Railway or `docker run`; non-root, `${PORT:-7860}`, `HEALTHCHECK` |
 | [`Procfile`](Procfile) | one line, for platforms that look for it |
 
-`requirements.txt` is untouched and still installs the full development set. Nothing in
-the simulator, the agents, the safety FSM or the dashboard's JavaScript changed — the
-deployed page is the local page. Measured on the deploy path: **41 MiB** peak RSS and
-**4.7 ms** per broadcast tick at 8× speed against a 200 ms budget.
+`requirements.txt` still installs the full development set. Measured on the deploy stack
+(`pip install -r requirements-deploy.txt`, Python 3.12.6): about **76 MiB** resident at idle
+and **101 MiB** with 100 viewers connected, against a 512 MiB free instance; about **1.5 %**
+of one CPU core at idle and **17 %** with 100 viewers (the free instance has 0.1 CPU); one
+tick costs about **2 ms** at the default medium 1× and **12–16 ms** at rush 8×, against a
+200 ms budget. `GET /healthz` reports the live numbers (version, build, viewers, tick cost,
+payload size, CPU, memory).
 
 The full walkthrough — the platform comparison, the Hugging Face Spaces alternative, the
-environment variables, a 16-point post-deploy checklist and the free-tier caveats — is in
+environment variables, the post-deploy checklist, the free-tier caveats and what to do if
+the bottom bar does not say **live · streaming** — is in
 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ---
@@ -399,6 +463,39 @@ environment variables, a 16-point post-deploy checklist and the free-tier caveat
 | [CHEATSHEET.md](CHEATSHEET.md) | The demo script and the numbers worth knowing by heart |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Hosting the live dashboard: platform choice, exact steps, verification checklist |
 | [docs/VIVA_MASTER.md](docs/VIVA_MASTER.md) | File-by-file verification, honest weaknesses, 144 questions with answers |
+| [CHANGELOG.md](CHANGELOG.md) | Every change in each release, file by file |
+
+---
+
+## Known limitations
+
+Stated plainly, because a reviewer will find them anyway. The first three live in code
+that this release deliberately leaves untouched — the safety FSM and the trained model —
+because every published number depends on them; fixing them means retraining and
+re-benchmarking.
+
+* **The FSM accepts a new request during amber and all-red.** Conflicting greens still
+  cannot happen (that invariant is tested), but a controller can cancel a phase change
+  mid-clearance and return to the same phase. With the shipped policy about one change in
+  five is cancelled this way, and the longest wait of a side street for its green reached
+  about 113 s in the benchmark runs, although `max_green_s` is 60.
+* **Greens after the first are one second longer than configured** (11–61 s instead of
+  10–60 s): an off-by-one in `phases.py`.
+* **Training treats the time limit as a true ending** (no bootstrapping on the last
+  transition), and **retraining is not bit-reproducible across NumPy versions** — the same
+  112-episode recipe gave a different model on NumPy 2.x than on the pinned 1.26. The
+  published numbers come from the one shipped checkpoint and regenerate exactly from it.
+* **Pre-emption reacts at the stop line**, not on approach: an emergency vehicle joins the
+  back of a queue and is only served once it reaches the front. The same override runs on
+  both grids, as in the benchmark.
+* **The fixed-time baseline is close to saturation at rush hour** (its east–west green can
+  move about 0.21 vehicles/s against 0.22 arriving), so the −61 % at rush says as much about
+  the baseline as about RL; max-pressure is the fairer comparison and the table reports it.
+* **The built-in simulator is a point-queue model**: no spill-back, no car-following, no
+  lane changing. Lanes, turns and vehicle types on the dashboard are drawn from the
+  simulated queues and links, not simulated individually.
+* **Some observation features saturate**: the waiting-time inputs reach their 1.0 cap on a
+  quarter to a third of busy approaches in heavy traffic.
 
 ---
 

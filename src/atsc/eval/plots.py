@@ -106,8 +106,9 @@ def make_all_plots(df: pd.DataFrame, out_dir: str) -> List[Path]:
     return paths
 
 
-def plot_training_curve(csv_path: str, out_dir: str) -> Optional[Path]:
-    """Plot the training avg-waiting-time curve from a train CSV log."""
+def plot_training_curve(csv_path: str, out_dir: str,
+                        name: str = "training_curve.png") -> Optional[Path]:
+    """Plot the training avg-waiting-time curve from a train CSV log into ``out_dir/name``."""
     csv_path = Path(csv_path)
     if not csv_path.exists():
         return None
@@ -121,7 +122,7 @@ def plot_training_curve(csv_path: str, out_dir: str) -> Optional[Path]:
     fig.tight_layout()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    p = out / "training_curve.png"
+    p = out / name
     fig.savefig(p, dpi=130)
     plt.close(fig)
     return p

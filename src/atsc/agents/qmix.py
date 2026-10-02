@@ -6,9 +6,11 @@ STRETCH GOAL, OFF BY DEFAULT (enable with ``qmix.enabled: true``). QMIX (Rashid 
 (non-negative mixing weights) guarantees that ``argmax`` over each agent's local Q also
 maximises ``Q_tot``, so execution stays fully decentralised.
 
-This module is a complete, runnable implementation used only when QMIX is enabled; the
-default, thoroughly-verified training path remains independent Double+Dueling DQN with
-neighbour observations (:mod:`atsc.agents.multi_agent`).
+This module is a runnable implementation used only when QMIX is enabled (it needs PyTorch;
+``tests/test_agents_compat.py`` trains it for a few steps). It is not what produced the
+shipped checkpoint or any published number: that is independent Double+Dueling DQN with
+neighbour observations (:mod:`atsc.agents.multi_agent`), and the shipped checkpoint does
+not load into QMIX - train a QMIX model of its own first.
 """
 from __future__ import annotations
 
@@ -21,7 +23,6 @@ import torch.nn.functional as F
 
 from atsc.agents.dqn import build_network
 from atsc.agents.policies import EpsilonGreedy
-from atsc.agents.replay import UniformReplayBuffer
 
 
 class QMixer(nn.Module):
@@ -84,8 +85,9 @@ class QMIXLearner:
 
         params = list(self.q.parameters()) + list(self.mixer.parameters())
         self.optimizer = torch.optim.Adam(params, lr=float(rl.lr))
-        self.epsilon = EpsilonGreedy(float(rl.epsilon_start), float(rl.epsilon_end),
-                                     int(rl.epsilon_decay_steps))
+        self._eps = EpsilonGreedy(float(rl.epsilon_start), float(rl.epsilon_end),
+                                  int(rl.epsilon_decay_steps))
+        self.backend_name = "torch"
 
         # one flat transition per timestep holds all agents' obs/actions
         self.buffer: List[dict] = []
@@ -100,8 +102,13 @@ class QMIXLearner:
         for aid in self.agent_ids:
             q = self.q(torch.as_tensor(obs[aid], dtype=torch.float32,
                                        device=self.device).unsqueeze(0)).cpu().numpy()[0]
-            actions[aid] = self.epsilon.select(q, self.n_actions, explore=explore)
+            actions[aid] = self._eps.select(q, self.n_actions, explore=explore)
         return actions
+
+    @property
+    def epsilon(self) -> float:
+        """Current exploration rate (a float, like MultiAgentDQN.epsilon - the trainer logs it)."""
+        return self._eps.epsilon
 
     def greedy(self, obs):
         return self.act(obs, explore=False)
@@ -120,7 +127,7 @@ class QMIXLearner:
             self.buffer.pop(0)
 
     def learn(self) -> Optional[float]:
-        self.epsilon.step()
+        self._eps.step()
         if len(self.buffer) < max(self.min_buffer, self.batch_size):
             return None
         idx = np.random.randint(0, len(self.buffer), size=self.batch_size)
@@ -173,7 +180,25 @@ class QMIXLearner:
         }, path)
 
     def load(self, path: str, load_optimizer: bool = False) -> dict:
-        p = torch.load(path, map_location=self.device)
-        self.q.load_state_dict(p["q"]); self.q_target.load_state_dict(p["q"])
-        self.mixer.load_state_dict(p["mixer"]); self.mixer_target.load_state_dict(p["mixer"])
+        from atsc.logging_utils import friendly_error
+        try:
+            p = torch.load(path, map_location=self.device)
+        except Exception as exc:  # e.g. the shipped DQN checkpoint (a plain pickle)
+            p = {"_error": str(exc)}
+        if not isinstance(p, dict) or p.get("algo") != "qmix":
+            raise ValueError(friendly_error(
+                "Checkpoint is not a QMIX model",
+                f"{path}\nqmix.enabled is true, but this file was not trained with QMIX "
+                "(the shipped models/pretrained checkpoint is a Double+Dueling DQN).",
+                fix="Set qmix.enabled: false to use the shipped model, or train a QMIX model:\n"
+                    "  python run.py train --quick   (with qmix.enabled: true)"))
+        if int(p.get("obs_dim", self.obs_dim)) != self.obs_dim or \
+                int(p.get("n_actions", self.n_actions)) != self.n_actions:
+            raise ValueError(friendly_error(
+                "QMIX checkpoint does not match config.yaml", path,
+                fix="Restore the settings it was trained with, or retrain."))
+        self.q.load_state_dict(p["q"])
+        self.q_target.load_state_dict(p["q"])
+        self.mixer.load_state_dict(p["mixer"])
+        self.mixer_target.load_state_dict(p["mixer"])
         return p.get("metadata", {})

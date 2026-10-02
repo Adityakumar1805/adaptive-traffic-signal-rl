@@ -1,9 +1,23 @@
-"""Evaluation: benchmarking harness, metrics, and comparison plots."""
-from atsc.eval.benchmark import improvement_table, run_benchmark, summarize
-from atsc.eval.metrics import run_controlled_episode
-from atsc.eval.plots import make_all_plots, plot_training_curve
+"""Evaluation: benchmarking harness, metrics, and comparison plots.
 
-__all__ = [
-    "run_benchmark", "summarize", "improvement_table",
-    "run_controlled_episode", "make_all_plots", "plot_training_curve",
-]
+The public names are imported lazily, so ``import atsc.eval.metrics`` (one episode, no
+tables) does not drag in pandas and matplotlib.
+"""
+from importlib import import_module
+
+_EXPORTS = {
+    "run_benchmark": "atsc.eval.benchmark",
+    "summarize": "atsc.eval.benchmark",
+    "improvement_table": "atsc.eval.benchmark",
+    "run_controlled_episode": "atsc.eval.metrics",
+    "make_all_plots": "atsc.eval.plots",
+    "plot_training_curve": "atsc.eval.plots",
+}
+
+__all__ = list(_EXPORTS)
+
+
+def __getattr__(name):
+    if name in _EXPORTS:
+        return getattr(import_module(_EXPORTS[name]), name)
+    raise AttributeError(f"module 'atsc.eval' has no attribute {name!r}")

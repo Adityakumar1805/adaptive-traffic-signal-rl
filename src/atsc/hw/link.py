@@ -121,14 +121,13 @@ class SerialLink(Link):
 
     def __init__(self, port: str, baud: int = 115200, settle_s: float = 0.0) -> None:
         try:
-            import serial                     # noqa: F401  (optional dependency)
+            import serial                     # optional dependency
         except Exception as exc:              # pragma: no cover - depends on env
             raise HardwareUnavailable(
                 "pyserial is not installed. Install it with 'pip install pyserial==3.5', "
                 "or set hardware.port: loopback to run the hardware path without a board."
             ) from exc
 
-        import serial
         self._port_name = port
         try:
             self._ser = serial.Serial(port=port, baudrate=int(baud), timeout=0, write_timeout=0.2)

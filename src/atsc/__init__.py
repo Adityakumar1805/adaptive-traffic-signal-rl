@@ -15,8 +15,9 @@ Package layout
     atsc.control     controllers: fixed-time, max-pressure, RL, emergency preemption
     atsc.train       training loop + curriculum
     atsc.eval        benchmarking harness, metrics, plots
+    atsc.vehicles    vehicle catalogue: Indian traffic mix + emergency types (cosmetic)
     atsc.dashboard   FastAPI + WebSocket real-time dashboard
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = ["__version__"]

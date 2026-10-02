@@ -1,0 +1,15 @@
+# Normalise line endings in the repository, and check scripts out the way their shells
+# need them on every platform (cmd.exe wants CRLF, bash wants LF).
+* text=auto
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.py   text eol=lf
+
+# The published results are kept byte for byte as they were generated (outputs/logs/train.csv
+# has CRLF line endings): never let git rewrite their line endings.
+*.csv  -text
+
+# binary artefacts: never touch
+*.pt   binary
+*.png  binary
+*.zip  binary

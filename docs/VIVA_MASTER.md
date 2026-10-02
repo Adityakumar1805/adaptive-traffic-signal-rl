@@ -9,6 +9,14 @@ Read the others for the material they already cover well:
 `README.md` (how to run) · `REPORT.md` (formal methodology) ·
 `EXPLAINER.md` (long-form teaching) · `CHEATSHEET.md` (the one page to memorise).
 
+> **Version note (1.1.0).** The inventory and line counts below describe release 1.0.0.
+> Release 1.1.0 rewrote the live dashboard (compact WebSocket protocol, ES-module front end
+> with 18 Indian vehicle types and three dispatchable emergency vehicles, wake screen),
+> fixed the WebSocket 403 on the hosted site, added checkpoint/config validation, and grew
+> the test suite from 26 to 152 — see [CHANGELOG.md](../CHANGELOG.md). The RL model, the
+> shipped checkpoint, the safety FSM and every benchmark number are unchanged. Answers below
+> that 1.1.0 made wrong have been corrected in place (look for **(1.1.0)**).
+
 **Verification standard used here.** Every number below was produced by running this
 repository's own code on this repository's own artefacts. Three checks back it up:
 
@@ -65,7 +73,7 @@ Built by parsing every file's AST and resolving the import graph, not by reading
 
 | File | LOC | Status | Purpose | Imported by |
 |---|---:|---|---|---|
-| `run.py` | 198 | CORE | the only entry point: `doctor · demo · train · eval · plots` subcommands | — (CLI) |
+| `run.py` | 198 | CORE | the only entry point: `doctor · demo · train · eval · sim` subcommands (plots are written by `eval` and `train`) | — (CLI) |
 | `src/atsc/__init__.py` | 22 | CORE | package marker, version | — |
 | `src/atsc/config.py` | 182 | CORE | loads `config.yaml` into an attribute-access dict; `validate_config` raises friendly errors | 7 modules + tests |
 | `src/atsc/logging_utils.py` | 83 | CORE | console + CSV logging | 8 modules |
@@ -136,7 +144,7 @@ shipped checkpoint is `create_qnet` in `agents/net.py`, which on this machine re
 | `dashboard/session.py` | 215 | CORE | the live demo brain: runs **RL and fixed-time side by side on identical traffic**, keeps rolling KPI deques | `server`, `stdlib_server` |
 | `dashboard/server.py` | 144 | CORE | FastAPI + WebSocket broadcast every `tick_ms`; falls back if FastAPI is missing | `run.py` |
 | `dashboard/stdlib_server.py` | 112 | **CORE-alt** | `ThreadingHTTPServer` + a stepper thread + `/api/state` polling. **This is the path that ran here** | `dashboard/server.py` |
-| `static/app.js` | 666 | CORE | canvas network animation, hand-drawn line charts (`drawLineChart`), all controls |  — |
+| `static/app.js` | 666 | CORE | canvas network animation, hand-drawn line charts (`drawLineChart`), all controls. **(1.1.0)** replaced by `static/js/{main, transport, model, renderer, sprites, charts, ui}.js` |  — |
 | `static/index.html` | 129 | CORE | the single page | — |
 | `static/styles.css` | 164 | CORE | styling | — |
 
@@ -294,8 +302,11 @@ Verified network size: **19,971 parameters** (23→128→128→ dueling heads, f
 `GREEN → YELLOW → ALL_RED → GREEN`, with `min_green 10 s`, `max_green 60 s`, `yellow 3 s`,
 `all_red 2 s`. Two properties do the work: a request arriving before `min_green` is **ignored**
 (no flicker), and `active_green()` returns the **empty set** during both YELLOW and ALL_RED, so
-during clearance every approach is red. `max_green` is the anti-starvation guarantee — the
-side street is served within 60 s no matter what the network says.
+during clearance every approach is red. `max_green` ends any green after 60 s — but it is
+**not** a full anti-starvation guarantee **(1.1.0, corrected)**: the FSM accepts a new
+request during amber and all-red, so a policy that re-requests the running phase cancels the
+change and the side street keeps waiting. With the shipped policy the longest wait for a
+green reached ~113 s. Conflicting greens remain impossible.
 
 ---
 
@@ -693,7 +704,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | 39 | Why penalise switching at all — is that not fighting the objective? | Every switch costs 5 s of yellow-plus-all-red where nobody moves. Without a price on it, the agent flickers and throws away capacity. | 0.20 per switch against a delay term of order 1–10 makes it a nudge, not a veto. Set it to zero and you get oscillation; set it high and you get a fixed-time controller. |
 | 40 | Why is pressure in the reward when it is already what max-pressure optimises? | It is a shaping term that gives the agent a reason to serve an imbalanced approach before it becomes a delay problem. | Weight 0.30 versus 1.0 on delay — delay is the objective, pressure is guidance. It also means our reward is not blind to the quantity our strongest baseline optimises. |
 | 41 | Is the reward shared or individual? | Individual — each agent gets its own junction's reward. | With shared parameters and pooled replay, the *network* still learns from all four experiences, so there is implicit cooperation without a shared reward. A global shared reward would worsen credit assignment: an agent could not tell whether the improvement was its own doing. |
-| 42 | Could the reward be gamed? | The obvious exploit — never switch, so never pay the switch penalty — is blocked by `max_green_s: 60` in the FSM. | That is a good example of why safety constraints live outside the reward: I do not have to encode "don't starve the side street" as a penalty and hope the weight is right, because the FSM makes it impossible. |
+| 42 | Could the reward be gamed? | Partly. Never switching is limited by `max_green_s: 60`, which forces the change to start — but the FSM accepts a new request during amber/all-red, so a policy can cancel the change and hold the same phase. **(1.1.0, corrected)** | The honest answer: the delay term in the reward (not the FSM) is what makes starving a side street costly. The shipped policy cancels about one change in five mid-clearance; side streets waited up to ~113 s. Fix: ignore requests during clearance in `phases.py` — left as is because the published numbers depend on it. |
 
 ### D. DQN, Double, Dueling, PER, target network (19)
 
@@ -745,7 +756,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | 76 ★ | Prove it. | `test_phases_safety.py` fires thousands of random phase requests at the FSM and asserts no two conflicting approaches are ever green together, plus that min and max green hold. | It is a property test over random action sequences rather than a formal proof. A model checker over the FSM would be the stronger claim, and it is a fair thing to ask for. |
 | 77 | Why 3 s yellow and 2 s all-red? | Standard practice: amber lets vehicles in the dilemma zone clear, all-red lets the intersection empty before the conflicting movement starts. | Both are config values (`yellow_s`, `all_red_s`). Real amber timing is a function of approach speed and grade; 3 s is typical for a 50 km/h approach. Changing them is a config edit, not a code change. |
 | 78 | What does min_green protect against? | Flicker. Without it a wait-minimising policy would switch every decision step and nobody would ever get through. | 10 s is roughly the time for a standing queue to start moving and discharge a few vehicles. It also caps how often the switch penalty can be incurred. |
-| 79 ★ | What does max_green guarantee? | No starvation. After 60 s the FSM forces a switch regardless of what the policy wants. | This is the answer to "what if your network decides to starve a road forever" — it is structurally impossible. It also blocks the obvious reward exploit of never switching to avoid the penalty. |
+| 79 ★ | What does max_green guarantee? | That no green runs longer than 60 s: the FSM starts a change regardless of the policy. **(1.1.0, corrected)** It does not, on its own, guarantee the side street gets served. | The FSM accepts a new request during amber and all-red, so the policy can cancel the change and return to the same phase; with the shipped policy the longest side-street wait reached ~113 s. A one-line fix (ignore requests during clearance) would make it a real guarantee, at the cost of re-running every benchmark. |
 | 80 | What if the neural network returns NaN? | The FSM still only accepts a valid phase index, and `argmax` of NaNs still returns an index in range, so the light stays legal — it would just make a poor choice. | The observation builder is unit-tested to return finite values. A production system would add an explicit sanity gate and a fallback to a fixed plan on any anomaly; that is not implemented here. |
 | 81 | Is the safety layer learned or hardcoded? | Hardcoded, deliberately. Safety you can prove beats safety you hope was learned. | It is the clean separation the project is built around: the environment owns safety, the agent owns optimisation. It is also what would let a certified controller host the policy as an advisory layer. |
 | 82 | Does the FSM ever ignore an emergency preemption request? | It honours the requested phase but still inserts yellow and all-red on the way. It will not slam a green on. | So preemption is fast but never unsafe. That is why clearance improves by 1.3–3.5× rather than instantly. |
@@ -824,7 +835,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | 125 ★ | How is the code organised? | 47 Python files, 5,463 lines, in seven packages: `sim` (backends), `envs` (environment + safety FSM + observation), `agents` (learner, nets, replay), `control` (three controllers + preemption), `train`, `eval`, `dashboard`. `config.yaml` is the single source of truth. | The design rule is that dependencies point inwards to `sim/backend.py`, which is the most imported module in the project (12 importers) and defines the abstract interface plus the metrics accumulator. That is what makes SUMO ↔ built-in interchangeable. |
 | 126 ★ | What does the dashboard actually do? | Runs two environments side by side — RL and a baseline — on the same seed, advanced by a background thread every 200 ms, and streams state to a browser. Seven live controls: play, pause, step, reset, speed, scenario, inject emergency. | The front end is 959 lines of hand-written HTML, CSS and JavaScript with **zero third-party libraries** — the junction rendering *and* the live line charts are drawn directly on Canvas. No CDN request anywhere, which is why it works with the network unplugged. That was a deliberate constraint, not an omission. |
 | 127 ★ | Is the dashboard secure? | Not in the sense a production service would be, and I can be precise about why that is acceptable here. `POST /api/cmd` is unauthenticated, so anyone who can reach the port can change the scenario or reset the run. | Locally it binds `127.0.0.1`, so the exposure is local. The public instance described in `docs/DEPLOYMENT.md` is deliberately open, because the attack surface is a simulation: no account, no upload, no database, no filesystem write, and nothing persisted between restarts. Before this became anything but a demo it would need auth on `/api/cmd`, a rate limit, an origin check and one session per visitor. I list it as a known weakness rather than waiting to be caught by it. |
-| 128 ★ | What do your tests cover? | 26 tests in 6 files, all passing. Safety FSM (5), controllers including preemption (5), PER sum-tree and the NumPy net (5), environment API and determinism (4), reward shaping (3), benchmark aggregation maths (4). | Two are behavioural rather than unit tests, which I think is the more valuable kind here: `test_max_pressure_beats_fixed_on_high` pins the baseline ordering, and `test_numpy_qnet_learns_fixed_target` proves the from-scratch network genuinely learns by regressing it onto a fixed target. |
+| 128 ★ | What do your tests cover? | **(1.1.0)** 144 tests in 13 files: the original 26 below, plus the dashboard protocol (a delta stream rebuilds every keyframe; the browser's between-frame picture equals the simulator second by second; the JavaScript model matches its Python mirror), the FastAPI and stdlib servers (WebSocket, path traversal, validation), the vehicle catalogue, and checkpoint/config compatibility. Original 26 tests in 6 files, all passing. Safety FSM (5), controllers including preemption (5), PER sum-tree and the NumPy net (5), environment API and determinism (4), reward shaping (3), benchmark aggregation maths (4). | Two are behavioural rather than unit tests, which I think is the more valuable kind here: `test_max_pressure_beats_fixed_on_high` pins the baseline ordering, and `test_numpy_qnet_learns_fixed_target` proves the from-scratch network genuinely learns by regressing it onto a fixed target. |
 | 129 ★★ | What is *not* tested? | Named plainly: no test of the SUMO backend — it cannot run without SUMO installed; no test of the dashboard HTTP layer or the JavaScript; no end-to-end training test; and no test asserting the shipped checkpoint's numbers. | Coverage is honest about where it stops. The gap I would close first is a smoke test that loads `atsc_2x2.pt` and asserts one benchmark row within tolerance — that turns the reproduction I ran by hand into something CI enforces. `run.py doctor` currently does the checkpoint-loads part. |
 | 130 | Why no PyTorch, FastAPI or SUMO on the machine that produced the results? | Because the fallbacks are the point. The project ships a NumPy Q-network, a stdlib HTTP server and a built-in simulator so that it runs on a bare Python install. | That is also the strongest evidence they are real fallbacks and not decorative `try/except` blocks — the shipped model was trained by the NumPy network, and the checkpoint format is deliberately a portable dict of arrays so the same file loads under PyTorch unchanged (`test_numpy_qnet_weight_portability`). |
 
@@ -885,7 +896,7 @@ Every one is verified against the shipped code, `config.yaml` or `outputs/*.csv`
 | 20 | Emergency clearance | 26.0→20.0 (1.30×), 28.7→18.3 (1.56×), 80.0→41.7 (1.92×), **113.7→32.7 (3.48×)** | same CSV |
 | 21 | Consistency | seed spread at rush: fixed **30.02 s** vs RL **2.69 s** → ~**11× more consistent** | same CSV |
 | 22 | Codebase | **47 Python files, 5,463 LOC**, 959 front-end lines, **zero front-end dependencies** | verified inventory |
-| 23 | Tests | **26 tests, all passing**, in 6 files | `tests/` |
+| 23 | Tests | **144 tests, all passing**, in 13 files (26 in 6 files in 1.0.0) | `tests/` |
 | 24 | Reproducibility | **36/36** benchmark rows reproduce the shipped CSV to **1e-9** | reran this week |
 | 25 | Honest boundary | all numbers from the **built-in** backend; SUMO implemented but **not measured**; **QMIX disabled** | `backend: auto`, `qmix.enabled: false` |
 
@@ -929,8 +940,8 @@ is consistent with it. Timings are for spoken pace.
 >
 > **(0:50–1:15 — safety, said before being asked)**
 > The agent never controls the light directly. It *requests* a phase, and a finite-state
-> machine decides — enforcing a 10-second minimum green, a 60-second maximum green so no road
-> can ever be starved, and a mandatory 3-second amber plus 2-second all-red on every change.
+> machine decides — enforcing a 10-second minimum green, a 60-second maximum green, and a
+> mandatory 3-second amber plus 2-second all-red on every change.
 > Conflicting greens are not unlikely in this design; they are unreachable. That safety layer
 > is hardcoded and unit-tested, because safety you can prove beats safety you hope was learned.
 >

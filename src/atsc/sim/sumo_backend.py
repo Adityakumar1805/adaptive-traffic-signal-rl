@@ -29,7 +29,7 @@ back to :class:`~atsc.sim.mini_backend.MiniBackend`.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set
 
 from atsc.sim.backend import (
     APPROACHES,
@@ -392,33 +392,35 @@ class SumoBackend(SimBackend):
             pass
         return {"time": self._t, "intersections": intersections, "moving": moving}
 
-    def inject_emergency(self, corridor: Optional[str] = None) -> Optional[str]:
+    def inject_emergency(self, corridor: Optional[str] = None,
+                         kind: str = "ambulance") -> Optional[str]:
+        """Insert an emergency vehicle that drives straight across one corridor.
+
+        Every emergency kind uses SUMO's single ``emergency`` vType from the route file (SUMO
+        has no notion of our cosmetic kinds). The route is the explicit, fully connected edge
+        list of the corridor, so insertion never depends on SUMO repairing a route.
+        """
+        from atsc.vehicles import EMERGENCY_KINDS
+        if kind not in EMERGENCY_KINDS:
+            raise ValueError(f"'{kind}' is not an emergency kind; choose from {list(EMERGENCY_KINDS)}")
         conn = self._conn
-        self._emerg_counter += 1
-        vid = f"EMG{self._emerg_counter}"
         rows, cols = self.topo.grid_rows, self.topo.grid_cols
         if corridor is None:
             corridor = "ew"
         if corridor == "ew":
-            row = rows // 2
-            entry, appr = f"J{row}_0", "W"
+            entry, appr = f"J{rows // 2}_0", "W"
+        elif corridor == "ns":
+            entry, appr = f"J0_{cols // 2}", "N"
         else:
-            col = cols // 2
-            entry, appr = f"J0_{col}", "N"
-        from_edge = f"{entry}_{appr}cap__{entry}"
-        to_edge = netgen._straight_exit_edge(self.topo, entry, appr)
+            raise ValueError(f"corridor must be 'ew' or 'ns', got {corridor!r}")
+        self._emerg_counter += 1
+        vid = f"EMG{self._emerg_counter}"
         route_id = f"route_{vid}"
         try:
-            conn.route.add(route_id, [from_edge, to_edge]) if to_edge else None
+            conn.route.add(route_id, netgen.straight_corridor_edges(self.topo, entry, appr))
             conn.vehicle.add(vid, routeID=route_id, typeID="emergency",
                              departLane="best", departSpeed="max")
-            self._known_emerg.add(vid)
-            return vid
         except Exception:
-            # if explicit 2-edge route fails, let SUMO find the path
-            try:
-                conn.vehicle.add(vid, routeID="", typeID="emergency")
-                self._known_emerg.add(vid)
-                return vid
-            except Exception:
-                return None
+            return None
+        self._known_emerg.add(vid)
+        return vid

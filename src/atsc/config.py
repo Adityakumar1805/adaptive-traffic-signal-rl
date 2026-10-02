@@ -166,14 +166,56 @@ def validate_config(cfg: Config) -> None:
             errors.append("  - signal.min_green_s must be <= signal.max_green_s")
         if cfg.reward.normalize <= 0:
             errors.append("  - reward.normalize must be > 0")
-        if cfg.backend not in ("auto", "sumo", "mini"):
+        if cfg.get_path("backend", "auto") not in ("auto", "sumo", "mini"):
             errors.append("  - backend must be one of: auto | sumo | mini")
+        if cfg.get_path("eval.backend", "mini") not in ("auto", "sumo", "mini"):
+            errors.append("  - eval.backend must be one of: auto | sumo | mini")
+
+        # vehicle catalogue (cosmetic mix + injectable emergency types)
+        from atsc import vehicles
+        errors.extend(vehicles.mix_errors(cfg.get_path("traffic_mix")))
+        errors.extend(vehicles.emergency_errors(cfg.get_path("emergency.types")))
+        _validate_dashboard(cfg, errors)
 
     if errors:
         raise ValueError(
             "config.yaml failed validation:\n" + "\n".join(errors) +
             "\n\nFix the above keys and try again."
         )
+
+
+def _is_number(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v == v
+
+
+def _validate_dashboard(cfg: Config, errors: List[str]) -> None:
+    """Checks for the ``dashboard`` block (every key is optional; defaults live in the session)."""
+    dash = cfg.get_path("dashboard")
+    if dash is None:
+        return
+    if not isinstance(dash, dict):
+        errors.append("  - dashboard must be a mapping")
+        return
+    if dash.get("backend", "mini") != "mini":
+        errors.append("  - dashboard.backend must be 'mini' (the live race runs two simulations "
+                      "in one process, which SUMO cannot do)")
+    scen = dash.get("default_scenario")
+    if scen is not None and scen not in (cfg.get_path("scenarios") or {}):
+        errors.append(f"  - dashboard.default_scenario '{scen}' is not one of the scenarios")
+    speeds = dash.get("speeds")
+    if speeds is not None:
+        if (not isinstance(speeds, list) or not speeds
+                or not all(_is_number(s) and 0 < s <= 16 for s in speeds)):
+            errors.append("  - dashboard.speeds must be a non-empty list of numbers in (0, 16]")
+        elif sorted(speeds) != list(speeds) or len(set(speeds)) != len(speeds):
+            errors.append("  - dashboard.speeds must be strictly increasing")
+        elif dash.get("default_speed") is not None and dash["default_speed"] not in speeds:
+            errors.append("  - dashboard.default_speed must be one of dashboard.speeds")
+    bounds = {"tick_ms": (20, 5000), "max_clients": (1, 10000), "max_active_emergencies": (1, 50),
+              "queue_render_cap": (1, 64), "keyframe_every_s": (1, 3600), "chart_window": (10, 2000)}
+    for key, (lo, hi) in bounds.items():
+        if key in dash and not (_is_number(dash[key]) and lo <= dash[key] <= hi):
+            errors.append(f"  - dashboard.{key} must be a number in [{lo}, {hi}]")
 
 
 if __name__ == "__main__":  # pragma: no cover - manual sanity check

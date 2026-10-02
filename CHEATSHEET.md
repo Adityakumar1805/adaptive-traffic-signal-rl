@@ -31,22 +31,28 @@ steps; Adam lr 5e-4, γ 0.99, batch 64, hidden [128,128], Huber loss. *(`config.
 `agents/double_dqn_agent.py`)*
 
 **6. Headline results (memorise the table).** RL vs fixed-time, identical seeds:
-Low **−15%**, Medium **−27%**, High **−49%**, Rush **−61%**, mean **≈38%**. Also beats/ties the
-strong **max-pressure** baseline. *(`outputs/benchmark_summary.md`)*
+Low **−15%**, Medium **−27%**, High **−49%**, Rush **−61%**, mean **≈38%**. Against the
+strong **max-pressure** baseline: max-pressure wins at low and medium, RL edges it at high
+(35.2 vs 35.6 s) and wins clearly at rush (43.9 vs 50.5 s). *(`outputs/benchmark_summary.md`)*
 
 **7. Safety guarantee (say it with confidence).** The agent never drives the lights. A
 finite-state machine (`phases.py`) enforces min-green 10 s, max-green 60 s, mandatory 3 s
 yellow + 2 s all-red on every change — so conflicting greens are **impossible by
 construction**. Verified over **18,000 random requests** (`test_phases_safety.py`).
+*Know the caveat:* it accepts a new request during amber/all-red, so a policy can cancel a
+change and keep a side street waiting past 60 s (up to ~113 s seen) — no conflict, but not
+a starvation guarantee.
 
 **8. Multi-agent / green wave.** One agent per intersection; they coordinate through neighbour
 pressure + phase in the state (no central controller); by default they share network weights.
 That coordination is what produces green waves.
 
 **9. Emergency preemption (real number).** Rule-based override forces a green corridor for an
-ambulance (still through yellow/all-red). Measured clearance **1.3× (low) → 3.5× (rush)**
-faster than fixed-time. *(Do NOT say 10×.)* *(`control/emergency.py`,
-`outputs/benchmark_results.csv`)*
+ambulance once it reaches a stop line (still through yellow/all-red); it runs for every
+controller. Measured clearance **1.3× (low) → 3.5× (rush)** faster than fixed-time — the RL
+grid's shorter queues get the ambulance to the stop line sooner. *(Do NOT say 10×.)*
+*(`control/emergency.py`, `outputs/benchmark_results.csv`)* On the dashboard you can also
+dispatch a police car or a fire engine.
 
 **10. Baselines & fairness.** Compared against **fixed-time (30/30 s)** AND **max-pressure**
 (near-optimal adaptive) on **byte-identical traffic** (same seed → same cars). *(`eval/benchmark.py`)*

@@ -17,7 +17,11 @@ from atsc.agents.replay import PrioritizedReplayBuffer, UniformReplayBuffer
 def build_learner(cfg, agent_ids, obs_dim, n_actions, device="cpu"):
     """Return the configured multi-agent learner (MultiAgentDQN or QMIXLearner)."""
     if bool(cfg.get_path("qmix.enabled", False)):
-        from atsc.agents.qmix import QMIXLearner  # imported lazily (PyTorch required)
+        try:
+            from atsc.agents.qmix import QMIXLearner  # imported lazily (PyTorch required)
+        except ImportError as exc:
+            raise RuntimeError("qmix.enabled: true needs PyTorch (pip install torch); "
+                               f"it could not be imported: {exc}") from None
         return QMIXLearner(cfg, agent_ids, obs_dim, n_actions, device=device)
     return MultiAgentDQN(cfg, agent_ids, obs_dim, n_actions, device=device)
 

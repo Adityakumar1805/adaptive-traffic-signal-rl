@@ -128,12 +128,53 @@ class MultiAgentDQN:
             pickle.dump(payload, fh, protocol=4)
 
     def load(self, path: str, load_optimizer: bool = False) -> dict:
-        with open(path, "rb") as fh:
-            payload = _CompatUnpickler(fh).load()
-        if payload.get("shared", True):
-            self._agent.load_state_dict(payload["agent"])
-        else:
-            for aid, sd in payload.get("agents", {}).items():
-                if aid in self.agents:
+        """Load a checkpoint written by :meth:`save`, after checking that it fits the config.
+
+        A checkpoint only works with the settings it was trained with; loading one under
+        different ``rl.neighbor_obs`` / ``rl.share_parameters`` / network settings used to fail
+        with an obscure shape error (or, for independent agents, silently leave some agents
+        untrained). Now it raises one readable ``ValueError`` that names every mismatch.
+        """
+        try:
+            with open(path, "rb") as fh:
+                payload = _CompatUnpickler(fh).load()
+        except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError) as exc:
+            raise ValueError(_incompatible(path, [f"not a checkpoint of this project ({exc})"])) from None
+        if not isinstance(payload, dict) or payload.get("format") != "atsc-portable-v1":
+            raise ValueError(_incompatible(path, [
+                "it is not a Double+Dueling DQN checkpoint (a QMIX checkpoint needs "
+                "qmix.enabled: true)"]))
+        problems = []
+        if int(payload.get("obs_dim", self.obs_dim)) != self.obs_dim:
+            problems.append(f"observation size {payload['obs_dim']} in the checkpoint, {self.obs_dim} "
+                            "with this config (rl.neighbor_obs or network.phase_scheme changed)")
+        if int(payload.get("n_actions", self.n_actions)) != self.n_actions:
+            problems.append(f"{payload['n_actions']} phases in the checkpoint, {self.n_actions} with "
+                            "this config (network.phase_scheme changed)")
+        shared = bool(payload.get("shared", True))
+        if shared != self.shared:
+            problems.append(f"rl.share_parameters is {str(shared).lower()} in the checkpoint, "
+                            f"{str(self.shared).lower()} in config.yaml")
+        if not shared and set(payload.get("agents", {})) != set(self.agent_ids):
+            problems.append("the checkpoint's intersections do not match this grid")
+        if problems:
+            raise ValueError(_incompatible(path, problems))
+        try:
+            if shared:
+                self._agent.load_state_dict(payload["agent"])
+            else:
+                for aid, sd in payload["agents"].items():
                     self.agents[aid].load_state_dict(sd)
+        except (KeyError, ValueError, RuntimeError) as exc:
+            raise ValueError(_incompatible(path, [
+                f"the network layout differs (rl.hidden_sizes or rl.dueling changed): {exc}"])) from None
         return payload.get("metadata", {})
+
+
+def _incompatible(path: str, problems: List[str]) -> str:
+    from atsc.logging_utils import friendly_error
+    return friendly_error(
+        "RL checkpoint does not match config.yaml",
+        f"{path}\n" + "\n".join(f"  - {p}" for p in problems),
+        fix="Put the rl / network settings back to the ones the model was trained with, "
+            "or train a model for the new settings:\n  python run.py train --quick")

@@ -23,8 +23,15 @@ def run_controlled_episode(
     emergency_time_frac: float = 0.4,
     with_preemption: bool = True,
 ) -> Dict[str, float]:
-    """Run one episode under a controller and return its metric dict."""
+    """Run one episode under a controller and return its metric dict.
+
+    The episode lasts ``eval.episode_seconds`` (falling back to ``sim.episode_seconds``);
+    with ``inject_emergency`` one ambulance is sent along the east-west corridor after
+    ``emergency_time_frac`` of it.
+    """
     env = MultiAgentTrafficEnv(cfg, backend_name=backend_name)
+    episode_s = int(cfg.get_path("eval.episode_seconds") or cfg.sim.episode_seconds)
+    env._episode_seconds = episode_s
     topo = env.topo
 
     ctrl_kwargs = {}
@@ -36,8 +43,8 @@ def run_controlled_episode(
     if inject_emergency and with_preemption:
         env.set_emergency_controller(EmergencyController(cfg, topo))
 
-    obs = env.reset(scenario=scenario, seed=seed)
-    inject_at = emergency_time_frac * cfg.sim.episode_seconds
+    env.reset(scenario=scenario, seed=seed)
+    inject_at = emergency_time_frac * episode_s
     injected = False
 
     while env.agents:

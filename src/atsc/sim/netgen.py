@@ -144,9 +144,11 @@ def build_net(cfg, force: bool = False) -> Path:
 def build_routes(cfg, scenario: str, seed: int) -> Path:
     """Generate a deterministic ``.rou.xml`` for a density scenario.
 
-    Uses the same Poisson demand model as the built-in simulator so the two backends
-    present comparable traffic. Vehicles are emitted on straight corridors across the
-    grid (plus occasional turns), each as an explicit ``<trip>`` with from/to edges.
+    Uses the same Poisson arrival rates as the built-in simulator so the two backends
+    present comparable traffic (statistically, not vehicle for vehicle). Vehicles are emitted
+    on straight corridors across the grid, each as an explicit ``<trip>`` with from/to
+    edges. Unlike the built-in simulator there are no turning trips (``turn_prob`` is not
+    used here), and vehicles start on a 200 m entry link instead of at the stop line.
     """
     topo = build_topology(cfg)
     params = cfg.scenario_params(scenario)
@@ -207,11 +209,29 @@ def build_routes(cfg, scenario: str, seed: int) -> Path:
     return rou
 
 
+def straight_corridor_edges(topo: NetworkTopo, entry_iid: str, entry_approach: str) -> List[str]:
+    """The full, connected edge list of a straight corridor: entry cap -> junctions -> exit cap."""
+    from atsc.sim.backend import APPROACH_TO_TRAVEL
+    delta = {"N": (-1, 0), "S": (1, 0), "E": (0, 1), "W": (0, -1)}
+    it = topo.get(entry_iid)
+    r, c = it.row, it.col
+    travel = APPROACH_TO_TRAVEL[entry_approach]
+    edges = [f"{entry_iid}_{entry_approach}cap__{entry_iid}"]
+    prev = entry_iid
+    while True:
+        dr, dc = delta[travel]
+        nr, nc = r + dr, c + dc
+        if not (0 <= nr < topo.grid_rows and 0 <= nc < topo.grid_cols):
+            edges.append(f"{prev}__{prev}_{travel}cap")
+            return edges
+        nxt = f"J{nr}_{nc}"
+        edges.append(f"{prev}__{nxt}")
+        prev, r, c = nxt, nr, nc
+
+
 def _straight_exit_edge(topo: NetworkTopo, entry_iid: str, entry_approach: str) -> Optional[str]:
     """Find the outbound cap edge where a straight corridor from an entry leaves the grid."""
-    from atsc.sim.backend import (
-        APPROACH_TO_TRAVEL, TRAVEL_TO_APPROACH,
-    )
+    from atsc.sim.backend import APPROACH_TO_TRAVEL
     delta = {"N": (-1, 0), "S": (1, 0), "E": (0, 1), "W": (0, -1)}
     it = topo.get(entry_iid)
     r, c = it.row, it.col

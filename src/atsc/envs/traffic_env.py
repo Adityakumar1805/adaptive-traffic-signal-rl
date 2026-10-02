@@ -38,7 +38,7 @@ except Exception:  # pragma: no cover
 from atsc.envs.phases import SignalFSM
 from atsc.envs.spaces import build_observation, obs_size
 from atsc.sim import make_backend
-from atsc.sim.backend import APPROACHES, build_topology
+from atsc.sim.backend import build_topology
 
 
 class MultiAgentTrafficEnv:
@@ -137,11 +137,10 @@ class MultiAgentTrafficEnv:
     def feed_detection(self, tls: str, approach: str, count: int = 1) -> int:
         """Inject ``count`` vehicles seen by a *real* detector; returns how many landed.
 
-        Delegates to the backend, which draws the route from a dedicated RNG stream so
-        hardware-injected traffic cannot perturb the sequence behind the published
-        benchmark. Unknown intersections are ignored, and a backend that cannot accept
-        externally detected vehicles (SUMO, where arrivals come from the route file) simply
-        does not implement the method and reports zero.
+        Hardware hook (see :mod:`atsc.hw`), not wired to anything yet. It delegates to an
+        optional backend method ``add_detected_arrival``; neither shipped backend implements
+        it today, so this returns 0. A future implementation must draw routes from its own
+        RNG stream so hardware traffic cannot perturb the published benchmark sequence.
         """
         if tls not in self.fsms or count <= 0:
             return 0
@@ -279,8 +278,10 @@ class MultiAgentTrafficEnv:
         state["elapsed"] = self._elapsed
         return state
 
-    def inject_emergency(self, corridor: Optional[str] = None) -> Optional[str]:
-        vid = self.backend.inject_emergency(corridor)
+    def inject_emergency(self, corridor: Optional[str] = None,
+                         kind: str = "ambulance") -> Optional[str]:
+        """Spawn an emergency vehicle (ambulance by default, as the benchmark does)."""
+        vid = self.backend.inject_emergency(corridor, kind=kind)
         if vid is not None and self._emergency_ctrl is not None:
             self._emergency_ctrl.notify_injection(corridor or "ew")
         return vid

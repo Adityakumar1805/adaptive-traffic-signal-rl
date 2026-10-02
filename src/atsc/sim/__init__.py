@@ -26,6 +26,9 @@ from atsc.sim.backend import (
 )
 
 
+_fallback_warned = False
+
+
 def make_backend(cfg, topo=None, prefer=None, use_gui=False):
     """Return a ready backend honouring the backend policy.
 
@@ -64,8 +67,11 @@ def make_backend(cfg, topo=None, prefer=None, use_gui=False):
                 return _mini()
         if prefer == "sumo":
             raise RuntimeError(install_instructions())
-        log.warning("SUMO not detected; using the built-in simulator fallback. "
-                    "(This is expected if SUMO is not installed.)")
+        global _fallback_warned
+        if not _fallback_warned:                 # once per process, not once per episode
+            _fallback_warned = True
+            log.warning("SUMO not detected; using the built-in simulator fallback. "
+                        "(This is expected if SUMO is not installed.)")
         return _mini()
 
     raise ValueError(f"Unknown backend preference '{prefer}'.")

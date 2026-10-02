@@ -4,13 +4,14 @@
 Usage
 -----
     python run.py demo            # train-if-needed, then open the live dashboard
-    python run.py train           # full training (writes models/pretrained/atsc_<grid>.pt)
     python run.py train --quick   # fast training (a few minutes) -> atsc_<grid>_quick.pt
+    python run.py train --overwrite   # full training; REPLACES the shipped checkpoint
     python run.py eval            # benchmark RL vs fixed-time vs max-pressure + plots
     python run.py sim             # watch the RL controller in SUMO-GUI (needs SUMO)
     python run.py doctor          # environment / dependency check
 
-All behaviour is driven by config.yaml. Run from the project root.
+All behaviour is driven by config.yaml. Run from the project root. Add --debug to any
+command to see the full traceback of an error.
 """
 from __future__ import annotations
 
@@ -34,8 +35,9 @@ def cmd_doctor(args) -> int:
     setup_logging()
     import platform
 
+    from atsc import __version__
     print("=" * 64)
-    print("  ATSC environment check")
+    print(f"  ATSC environment check  (version {__version__})")
     print("=" * 64)
     print(f"  Python           : {platform.python_version()}  ({platform.system()})")
 
@@ -78,17 +80,28 @@ def cmd_train(args) -> int:
     from atsc.logging_utils import setup_logging
     setup_logging()
     cfg = _load_cfg(args)
+    from atsc.control.rl_controller import default_checkpoint_path
+    target = default_checkpoint_path(cfg)
+    if not args.quick and target.exists() and not args.overwrite:
+        print(f"{target.relative_to(ROOT) if target.is_relative_to(ROOT) else target} already "
+              "exists: it is the shipped model that every published result and the live demo "
+              "come from, and outputs/logs/train.csv is its training log.\n"
+              "Training again produces a different model (training is not bit-reproducible).\n"
+              "  python run.py train --quick       a few-minute model in a separate *_quick.pt file\n"
+              "  python run.py train --overwrite   replace the shipped model and its log on purpose")
+        return 1
     from atsc.train.trainer import train_main
     path = train_main(cfg, quick=args.quick)
     print(f"\nCheckpoint saved: {path}")
     try:
         from atsc.eval.plots import plot_training_curve
         log_csv = ROOT / cfg.train.log_dir / ("train_quick.csv" if args.quick else "train.csv")
-        p = plot_training_curve(str(log_csv), str(ROOT / cfg.eval.out_dir))
+        name = "training_curve_quick.png" if args.quick else "training_curve.png"
+        p = plot_training_curve(str(log_csv), str(ROOT / cfg.eval.out_dir), name=name)
         if p:
             print(f"Training curve : {p}")
-    except Exception:
-        pass
+    except Exception as exc:  # plotting is a bonus; the checkpoint is what matters
+        print(f"(training curve not plotted: {exc})")
     return 0
 
 
@@ -105,9 +118,16 @@ def cmd_eval(args) -> int:
         train_main(cfg, quick=True)
     from atsc.eval.benchmark import run_benchmark
     from atsc.eval.plots import make_all_plots
-    df = run_benchmark(cfg, seeds=args.seeds)
+    backend = args.backend or str(cfg.get_path("eval.backend") or "mini")
+    out_dir = ROOT / cfg.eval.out_dir
+    if backend != "mini":
+        # the published CSVs and plots are the built-in simulator's: keep them intact
+        out_dir = out_dir / backend
+        print(f"Benchmarking on the '{backend}' backend -> {out_dir} "
+              "(the published results in outputs/ come from the built-in simulator)")
+    df = run_benchmark(cfg, seeds=args.seeds, backend_name=backend, out_dir=str(out_dir))
     if not df.empty:
-        paths = make_all_plots(df, str(ROOT / cfg.eval.out_dir))
+        paths = make_all_plots(df, str(out_dir))
         print("\nPlots written:")
         for p in paths:
             print(f"  {p}")
@@ -143,6 +163,9 @@ def cmd_sim(args) -> int:
 
 
 def cmd_demo(args) -> int:
+    # First, before NumPy loads: the dashboard needs one BLAS thread, not a spinning pool.
+    from atsc.threads import limit_math_threads
+    limit_math_threads()
     from atsc.logging_utils import setup_logging, get_logger
     setup_logging()
     log = get_logger("demo")
@@ -164,13 +187,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="run.py", description="Adaptive Traffic Signal Control (RL)")
     parser.add_argument("--config", default=None, help="path to config.yaml")
+    parser.add_argument("--debug", action="store_true", help="show full tracebacks on errors")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("demo", help="train-if-needed then open the live dashboard")
     p_train = sub.add_parser("train", help="train the RL controller")
     p_train.add_argument("--quick", action="store_true", help="fast, few-minute training")
+    p_train.add_argument("--overwrite", action="store_true",
+                         help="allow a full training run to replace the shipped checkpoint")
     p_eval = sub.add_parser("eval", help="benchmark RL vs baselines and make plots")
     p_eval.add_argument("--seeds", type=int, nargs="*", default=None)
+    p_eval.add_argument("--backend", choices=["mini", "sumo", "auto"], default=None,
+                        help="simulator for the benchmark (default: eval.backend in config.yaml)")
     p_sim = sub.add_parser("sim", help="watch the RL controller in SUMO-GUI")
     p_sim.add_argument("--scenario", default="high")
     sub.add_parser("doctor", help="check the environment and dependencies")
@@ -178,7 +206,6 @@ def main() -> int:
     args = parser.parse_args()
     if not args.command:
         args.command = "demo"
-        args.quick = False
 
     dispatch = {
         "demo": cmd_demo, "train": cmd_train, "eval": cmd_eval,
@@ -190,7 +217,9 @@ def main() -> int:
         print("\nStopped.")
         return 0
     except Exception as exc:
-        print(str(exc))
+        if args.debug:
+            raise
+        print(f"Error ({type(exc).__name__}): {exc}\n(run again with --debug for the full traceback)")
         return 1
 
 
