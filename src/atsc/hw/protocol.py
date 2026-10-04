@@ -10,7 +10,8 @@ would save at 115200 baud.
 
 Downlink (PC -> node), sentinel ``>``::
 
-    >L,<aspects>,<crc>\\n     lamp command, one char per (intersection, phase)
+    >L,<aspects>,<crc>\\n        lamp command, one char per (intersection, phase)
+    >T,<row>,<text>,<crc>\\n     a line of text for the node's OLED, rows 0-3
 
 ``aspects`` is ``n_intersections * n_phases`` characters, in topology order, each one
 of ``R`` (red), ``A`` (amber) or ``G`` (green). For the shipped ``ns_ew`` scheme that
@@ -19,17 +20,27 @@ The whole board is sent in every frame rather than per-lamp deltas, which makes 
 command **idempotent**: a dropped line cannot leave the board out of sync, because the
 next frame restates the complete truth.
 
+``text`` is at most :data:`TEXT_COLS` printable ASCII characters and never contains ``,``,
+``<`` or ``>`` (:func:`encode_text` replaces them): the node treats ``>`` as the start of a
+new frame, which is how it resynchronises after a damaged line.
+
 Uplink (node -> PC), sentinel ``<``::
 
-    <D,<tls>,<approach>,<crc>\\n      vehicle detected entering an approach
-    <Q,<tls>,<approach>,<n>,<crc>\\n  quantised queue occupancy on an approach
-    <E,<corridor>,<crc>\\n            RF emergency-vehicle preemption request
-    <H,<uptime_ms>,<crc>\\n           heartbeat / liveness
+    <D,<tls>,<approach>,<crc>\\n          vehicle detected entering an approach
+    <Q,<tls>,<approach>,<n>,<crc>\\n      quantised queue occupancy on an approach
+    <E,<corridor>[,<vehicle>],<crc>\\n    RF emergency-vehicle request (ambulance, ...)
+    <C,<action>,<crc>\\n                  control button (``toggle``: pause / resume)
+    <H,<uptime_ms>,<crc>\\n               heartbeat / liveness
+    <I,<text>,<crc>\\n                    node identity, sent at boot and whenever the
+                                         node sees the PC again (``atsc-node 1.2.0 ...``)
 
 ``crc`` is CRC-8 (polynomial 0x07, init 0x00) over the payload — everything after the
 sentinel up to, but excluding, the final comma — as two uppercase hex digits. A frame
 whose CRC does not match is discarded silently; the 433 MHz receiver produces noise
 bursts that would otherwise be read as commands.
+
+The firmware side of every rule here is ``firmware/atsc_signal_node/atsc_core.h``;
+``tests/test_hardware.py`` runs both against the same vectors.
 """
 from __future__ import annotations
 
@@ -45,6 +56,10 @@ GREEN = "G"
 
 #: aspect characters a well-formed lamp frame may contain
 ASPECTS = (RED, AMBER, GREEN)
+
+#: OLED text: rows the PC may write, and characters per row
+TEXT_ROWS = 4
+TEXT_COLS = 21
 
 
 # --------------------------------------------------------------------------- #
@@ -135,19 +150,52 @@ def decode_lamps(line: str) -> Optional[str]:
     return aspects
 
 
+def sanitize_text(text: str) -> str:
+    """``text`` as the node can show it: printable ASCII, no ``,`` ``<`` ``>``, at most
+    :data:`TEXT_COLS` characters."""
+    out = []
+    for ch in str(text):
+        if ch in ",<>" or not (" " <= ch <= "~"):
+            ch = "?" if ch not in ",<>" else {",": ";", "<": "(", ">": ")"}[ch]
+        out.append(ch)
+    return "".join(out)[:TEXT_COLS].rstrip()
+
+
+def encode_text(row: int, text: str) -> bytes:
+    """Build one ``>T`` frame: show ``text`` on OLED row ``row`` (0-3) of the node."""
+    if not 0 <= int(row) < TEXT_ROWS:
+        raise ValueError(f"row must be 0..{TEXT_ROWS - 1}")
+    return _frame(DOWNLINK_SENTINEL, f"T,{int(row)},{sanitize_text(text)}")
+
+
+def decode_text(line: str) -> Optional[Tuple[int, str]]:
+    """Inverse of :func:`encode_text`: ``(row, text)``, or ``None`` if invalid."""
+    fields = _split_checked(line, DOWNLINK_SENTINEL)
+    if not fields or fields[0] != "T" or len(fields) != 3:
+        return None
+    if len(fields[1]) != 1 or not fields[1].isdigit() or int(fields[1]) >= TEXT_ROWS:
+        return None
+    text = fields[2]
+    if len(text) > TEXT_COLS or sanitize_text(text) != text.rstrip():
+        return None
+    return int(fields[1]), text
+
+
 # --------------------------------------------------------------------------- #
 # Uplink events
 # --------------------------------------------------------------------------- #
 VALID_APPROACHES = ("N", "S", "E", "W")
 VALID_CORRIDORS = ("ns", "ew")
+VALID_ACTIONS = ("toggle",)
 
 
 @dataclass(frozen=True)
 class UplinkEvent:
     """One decoded message from the hardware node.
 
-    ``kind`` is ``"detect"``, ``"queue"``, ``"emergency"`` or ``"heartbeat"``; the
-    remaining fields are populated only where they apply.
+    ``kind`` is ``"detect"``, ``"queue"``, ``"emergency"``, ``"control"``, ``"heartbeat"``
+    or ``"info"``; the remaining fields are populated only where they apply. ``vehicle``
+    is the emergency vehicle the button asks for (empty: the default for the corridor).
     """
 
     kind: str
@@ -156,7 +204,15 @@ class UplinkEvent:
     count: int = 0
     corridor: str = ""
     uptime_ms: int = 0
-# UPLINK_DECODER_PLACEHOLDER
+    vehicle: str = ""
+    action: str = ""
+    text: str = ""
+
+
+def _is_word(s: str) -> bool:
+    return 0 < len(s) <= 24 and all(c.islower() or c.isdigit() or c == "_" for c in s)
+
+
 def decode_uplink(line: str) -> Optional[UplinkEvent]:
     """Decode one uplink line. Returns ``None`` for noise, bad CRC or unknown types.
 
@@ -185,10 +241,23 @@ def decode_uplink(line: str) -> Optional[UplinkEvent]:
             return None
         return UplinkEvent("queue", tls=tls, approach=approach, count=max(0, count))
 
-    if kind == "E" and len(fields) == 2:
+    if kind == "E" and len(fields) in (2, 3):
         corridor = fields[1].lower()
-        if corridor in VALID_CORRIDORS:
-            return UplinkEvent("emergency", corridor=corridor)
+        vehicle = fields[2].lower() if len(fields) == 3 else ""
+        if corridor in VALID_CORRIDORS and (not vehicle or _is_word(vehicle)):
+            return UplinkEvent("emergency", corridor=corridor, vehicle=vehicle)
+        return None
+
+    if kind == "C" and len(fields) == 2:
+        action = fields[1].lower()
+        if action in VALID_ACTIONS:
+            return UplinkEvent("control", action=action)
+        return None
+
+    if kind == "I" and len(fields) == 2:
+        text = fields[1].strip()
+        if text and all(" " <= c <= "~" for c in text):
+            return UplinkEvent("info", text=text[:64])
         return None
 
     if kind == "H" and len(fields) == 2:
@@ -208,9 +277,13 @@ def encode_uplink(event: UplinkEvent) -> bytes:
     elif event.kind == "queue":
         payload = f"Q,{event.tls},{event.approach},{event.count}"
     elif event.kind == "emergency":
-        payload = f"E,{event.corridor}"
+        payload = f"E,{event.corridor}" + (f",{event.vehicle}" if event.vehicle else "")
+    elif event.kind == "control":
+        payload = f"C,{event.action}"
     elif event.kind == "heartbeat":
         payload = f"H,{event.uptime_ms}"
+    elif event.kind == "info":
+        payload = f"I,{event.text}"
     else:
         raise ValueError(f"unknown event kind '{event.kind}'")
     return _frame(UPLINK_SENTINEL, payload)

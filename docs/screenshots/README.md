@@ -11,6 +11,7 @@ The dashboard stills were captured from the live page (headless Chromium, rush h
 | `dashboard_desktop.png` | the first screen on a 1440 x 900 display: both grids complete, the KPI cards in the column beside them |
 | `dashboard_phone.png` | the first screen on a 390 x 844 phone, with an ambulance on the road |
 | `network_render_rl_vs_fixed.png` | the two grids racing on identical traffic (fixed-time queues overflow the screen: "+15") |
+| `dashboard_hardware.png` | `python run.py demo --hardware` driving the firmware on the simulated board (`tools/virtual_board`): speed at *real time*, the status bar reporting the board live with two toy cars sensed and one remote call; the ambulance came from remote button A |
 | `network_render_ambulance.png` | one ambulance dispatched to both grids: on the RL grid it is already clearing J1_0; on the fixed-time grid J1_0 is pre-empted (the pulsing ring) while the ambulance is still in the queue counted by "+12"; the banner heads the KPI column |
 
 To refresh them, run `python run.py demo` and take screenshots, or run

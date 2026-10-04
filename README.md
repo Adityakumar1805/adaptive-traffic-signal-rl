@@ -17,7 +17,8 @@
   <img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/Python-3.10%20%E2%80%93%203.12-3776AB?logo=python&logoColor=white">
   <img alt="PyTorch 2.2 with a NumPy fallback" src="https://img.shields.io/badge/PyTorch-2.2%20%C2%B7%20NumPy%20fallback-EE4C2C?logo=pytorch&logoColor=white">
   <img alt="SUMO optional" src="https://img.shields.io/badge/SUMO-optional-00A0A0">
-  <img alt="152 tests passing" src="https://img.shields.io/badge/tests-152%20passing-22c55e">
+  <img alt="195 tests passing" src="https://img.shields.io/badge/tests-195%20passing-22c55e">
+  <img alt="Arduino signal model" src="https://img.shields.io/badge/hardware-Arduino%20model-00979D?logo=arduino&logoColor=white">
   <img alt="36 benchmark runs" src="https://img.shields.io/badge/benchmark-36%20runs-38bdf8">
   <img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-64748b">
 </p>
@@ -32,10 +33,13 @@ and emergency preemption gets an ambulance through the grid up to **3.5× faster
 ships a real-time dashboard that races the learned policy against the fixed-time baseline on
 the same traffic, arrival for arrival — drawn as Indian traffic (two-wheelers, autos,
 e-rickshaws, buses, tractors…) driving on the left, with ambulances, police cars and fire
-engines you can dispatch yourself.
+engines you can dispatch yourself. The same agents can also switch the **16 traffic lights of
+a table-top Arduino model**, in real time, with toy cars and a remote control feeding back
+into the simulation ([the physical model](#the-physical-model)).
 
 ```bash
-python run.py demo          # dashboard on http://127.0.0.1:8000 — nothing else to configure
+python run.py demo              # dashboard on http://127.0.0.1:8000 — nothing else to configure
+python run.py demo --hardware   # ...and drive the Arduino signal model (docs/HARDWARE.md)
 ```
 
 ---
@@ -118,7 +122,7 @@ left, the fixed-time controller on the right. The queues you can see are the who
 |---|---|
 | **Scenario** | Low / Medium / High / Rush hour — restarts the race with those arrival rates |
 | **Pause · Step · Reset** | Freeze, advance exactly one 5 s decision, or restart the episode |
-| **Speed** | 0.2× to 8× (1× = one 5 s decision per 200 ms tick, 25× real time) |
+| **Speed** | 0.2× to 8× (1× = one 5 s decision per 200 ms tick, 25× real time); with the Arduino model attached, real time to 200× real time |
 | **Dispatch an emergency vehicle** | Ambulance, police car or fire engine (configurable) into *both* grids; the banner names it and the junction it pre-empts, and tells you when it is through the RL grid but still stuck in fixed-time traffic |
 | **KPI cards** | RL's change against fixed-time — waiting time, queue, throughput — with the same sign convention as the results table (−26.5 % = 26.5 % less), and the emergency clearance time (compared only over vehicles that have cleared both grids). On a laptop they sit beside the grids, so the whole race and the numbers fit on one screen |
 | **Vehicles** | All 18 vehicle types, drawn to scale, with how many of each are on the RL grid right now |
@@ -161,6 +165,38 @@ vehicles flash.
 
 ---
 
+## The physical model
+
+An Arduino Uno turns the RL grid into a table-top model: **16 signal heads** (four junctions ×
+four approaches) switched through six 74HC595 shift registers, **8 IR sensors** at junction
+J0_0 that add the toy cars they see to both simulated grids, a **4-button 433 MHz remote**
+that dispatches an ambulance, a police car or a fire engine (or pauses the race), an OLED with
+live figures and a siren. In this mode the dashboard runs in **real time**, so the 3 s amber
+and 2 s all-red last 3 s and 2 s on the model; if the PC stops talking, every head falls back
+to flashing amber within 3 s, and the board reconnects by itself.
+
+<table>
+<tr>
+<td width="62%"><img alt="The dashboard driving the model: speed set to real time, the status bar reports the signal board live with two cars sensed and one remote call, and an ambulance dispatched from the remote is pre-empting J1_0" src="docs/screenshots/dashboard_hardware.png"></td>
+<td width="38%"><img alt="Top view of the model: four junctions, sixteen signal heads on the left kerb of each lane, eight IR sensors at J0_0, and the emergency corridors" src="docs/hardware/board_layout.svg"></td>
+</tr>
+</table>
+
+```bash
+python run.py hwtest            # check a freshly built board: every lamp, sensor and button
+python run.py demo --hardware   # the lamps follow the RL grid; --mirror fixed shows fixed-time
+```
+
+**[docs/HARDWARE.md](docs/HARDWARE.md)** is the complete build: parts list, the model's
+layout, the wiring (with the table of which shift-register output drives which lamp), uploading
+the firmware, calibration, a five-minute demonstration for the viva, and troubleshooting. The
+firmware is in [`firmware/atsc_signal_node`](firmware/atsc_signal_node); it was run unchanged
+on a simulated ATmega328P driven by the real dashboard before release
+([`tools/virtual_board`](tools/virtual_board)). Hardware mode is opt-in and leaves training,
+the benchmark and every published number untouched.
+
+---
+
 ## Fixed-time vs the learned policy
 
 Both panels of the dashboard receive the *same* arrivals from the same seed, so every
@@ -198,8 +234,9 @@ beats the agents at low and medium demand; the results table above says so out l
 | Web server | FastAPI + `uvicorn[standard]`, WebSocket push of compact deltas | `http.server` from the standard library, polling |
 | Frontend | hand-written HTML, CSS and `<canvas>` JavaScript in ES modules; all 18 vehicle sprites drawn in code | — (there is no framework and no CDN to lose) |
 | Numerics | NumPy 1.26, pandas + matplotlib for the benchmark plots | — |
+| Hardware (optional) | Arduino Uno firmware in C++, six 74HC595s, FC-51 IR sensors, 433 MHz remote, SSD1306 OLED; `pyserial` on the PC | the dashboard alone |
 | Config | one `config.yaml`, read by every module | — |
-| Tests | pytest, 152 tests (the original 26 + protocol, server, vehicle and page tests) and a Playwright browser check | — |
+| Tests | pytest, 195 tests (the original 26 + protocol, server, vehicle, page and hardware tests) and a Playwright browser check | — |
 | Hosting | Render free plan, defined in [`render.yaml`](render.yaml) | the same [`Dockerfile`](Dockerfile) on Spaces / Fly / Railway |
 
 Three of those fallbacks are load-bearing rather than decorative: the hosted site runs
@@ -326,12 +363,17 @@ src/atsc/
                stdlib_server.py (fallback) · runtime.py, assets.py (headers, static files,
                page templating shared by both servers) · static/ (index.html, styles.css,
                sw.js, js/: main, transport, model, renderer, sprites, charts, ui)
-  hw/          serial bridge for an LED signal board — Python side only, inert while disabled
+  hw/          the Arduino model: wire protocol, bridge, real-time playback (mirror.py),
+               self-test (selftest.py) — imported only in hardware mode
+
+firmware/atsc_signal_node/       Arduino sketch + atsc_core.h (logic unit-tested on the PC)
 
 models/pretrained/atsc_2x2.pt    the shipped checkpoint: 313 KB, 112 training episodes
-tests/                           152 tests: the original 26 (env, safety, reward, replay,
-                                 controllers, benchmark maths) + protocol, server, vehicles, page
+tests/                           195 tests: the original 26 (env, safety, reward, replay,
+                                 controllers, benchmark maths) + protocol, server, vehicles, page,
+                                 hardware (firmware logic, playback, sensors, simulated board)
 tools/                           e2e_browser.py (Playwright check) · bench_server.py (tick/payload/load)
+                                 · virtual_board/ (the firmware on a simulated Uno) · hardware_diagrams.py
 outputs/                         the CSVs, summary and plots this README quotes — tracked on purpose
 docs/assets/ · docs/screenshots/ the diagrams and stills above
 ```
@@ -357,6 +399,7 @@ A map from the question to the file that answers it.
 | How do you *prove* the improvement? | `eval/benchmark.py` | identical seeds, three replicates, per-scenario improvement table and plots |
 | No *SUMO*? | `sim/mini_backend.py` | built-in point-queue simulator behind the same interface; the demo still runs |
 | No *PyTorch*? | `agents/net.py` | from-scratch NumPy dueling network with manual backprop and a portable checkpoint format |
+| The *hardware*? | `firmware/atsc_signal_node`, `hw/mirror.py` | the board shows the RL grid second by second in real time; sensors and the remote feed the simulation; it fails safe to flashing amber ([HARDWARE.md](docs/HARDWARE.md)) |
 
 The long form — verified file inventory, known weaknesses, and 144 questions with answers —
 is in [docs/VIVA_MASTER.md](docs/VIVA_MASTER.md).
@@ -377,7 +420,7 @@ emergency: { enabled: true, preemption: true, types: { ambulance, police, fire }
 traffic_mix: { bike: 30, scooter: 22, car: 15, auto: 10, ... }  # cosmetic: what is drawn
 dashboard: { tick_ms: 200, speeds: [0.2, 0.5, 1, 2, 4, 8], max_clients: 100 }
 qmix:      { enabled: false }        # stretch goal: centralised training, decentralised execution
-hardware:  { enabled: false }        # no board is built yet; nothing in src/atsc/hw runs while false
+hardware:  { enabled: false, port: auto, mirror: rl }   # the Arduino model; or run.py demo --hardware
 seed: 42
 ```
 
@@ -461,6 +504,7 @@ the bottom bar does not say **live · streaming** — is in
 | [REPORT.md](REPORT.md) | The methodology: MDP formulation, reward derivation, training protocol, full result tables |
 | [EXPLAINER.md](EXPLAINER.md) | Plain-language walkthrough of every module and why it exists |
 | [CHEATSHEET.md](CHEATSHEET.md) | The demo script and the numbers worth knowing by heart |
+| [docs/HARDWARE.md](docs/HARDWARE.md) | Building the Arduino signal model: parts, layout, wiring tables, firmware, calibration, viva demo, troubleshooting |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Hosting the live dashboard: platform choice, exact steps, verification checklist |
 | [docs/VIVA_MASTER.md](docs/VIVA_MASTER.md) | File-by-file verification, honest weaknesses, 144 questions with answers |
 | [CHANGELOG.md](CHANGELOG.md) | Every change in each release, file by file |

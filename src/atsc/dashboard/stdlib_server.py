@@ -166,3 +166,4 @@ def run_stdlib_dashboard(session: DashboardSession, host: str, port: int,
     finally:
         stop.set()
         httpd.server_close()
+        session.close()                      # a signal board, if any: all-red, port closed

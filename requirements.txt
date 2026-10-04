@@ -31,6 +31,9 @@ uvicorn[standard]==0.30.1
 # --- Testing ---
 pytest==8.2.0
 
+# --- Arduino signal model (optional: python run.py demo --hardware, docs/HARDWARE.md) ---
+pyserial==3.5
+
 # --- Optional logging (import-guarded in code; safe to remove) ---
 # tensorboard==2.16.2
 

@@ -201,33 +201,32 @@ dashboard:
   keyframe_every_s: 10         # full-state resync interval for every viewer (self-healing)
 
 # --------------------------------------------------------------------------
-# Hardware-in-the-loop (OPTIONAL — off by default, and unfinished)
+# Hardware-in-the-loop: the Arduino signal model (OPTIONAL, off by default)
 #
-#   enabled: false  ->  not one line of src/atsc/hw runs, pyserial is not needed,
-#                       and every published result stays bit-for-bit reproducible.
+#   enabled: false  ->  nothing in src/atsc/hw is imported, pyserial is not needed, and
+#                       every published result stays bit-for-bit reproducible.
 #
-# Status: the Python side exists and is importable (src/atsc/hw/, protocol in
-# src/atsc/hw/protocol.py), but nothing in the dashboard, training or benchmark
-# calls it yet and the board and its firmware do not exist. Setting
-# enabled: true therefore has no effect today. Leave it false.
+# An Arduino Uno running firmware/atsc_signal_node drives 16 signal heads (4 junctions x
+# N/E/S/W, red/amber/green) through six 74HC595 shift registers, reads 8 IR sensors at
+# instrumented_tls and a 4-button 433 MHz remote, and shows live figures on an OLED.
+# Build guide, wiring and the viva demo: docs/HARDWARE.md.
 #
-# The intended node is an ESP32 driving 24 LEDs through three 74HC595 shift
-# registers (4 intersections x 2 phase groups x R/A/G), reading 8 IR detectors
-# through a PCF8574 I2C expander, and listening on a 433 MHz receiver for the
-# ambulance preemption button.
+#   python run.py hwtest              # check a freshly built board, part by part
+#   python run.py demo --hardware     # the dashboard drives the board (flags override this block)
 #
-# For a 1:1 real-time demo set dashboard.tick_ms: 5000 as well — at the default
-# 200 ms and speed 1 the dashboard advances 25 simulated seconds per wall second, so
-# the 3 s amber and 2 s all-red would flash past far too quickly to see on the board.
+# In hardware mode the dashboard starts at "real time" (one simulated second per second),
+# so the 3 s amber and 2 s all-red last 3 s and 2 s on the model; the other speeds still work.
 # --------------------------------------------------------------------------
 hardware:
-  enabled: false               # MASTER SWITCH. true only for a live board demo
-  port: auto                   # auto | loopback | COM5 | /dev/ttyUSB0 | none
+  enabled: false               # true = every `python run.py demo` drives the board
+  port: auto                   # auto | COM5 | /dev/cu.usbserial-110 | /dev/ttyUSB0 | loopback
   baud: 115200
-  settle_s: 1.5                # wait after opening the port (an ESP32 reboots on connect)
-  heartbeat_s: 1.0             # resend the lamp frame at least this often (late-boot catch-up)
-  detect_cooldown_s: 0.25      # per-approach debounce for IR detections (0 = trust firmware)
-  lamps: true                  # drive the LED signal heads from the simulation
-  detectors: true              # let real IR detections inject vehicles into the sim
-  rf_preemption: true          # let the 433 MHz button request emergency preemption
-  instrumented_tls: J0_0       # the one intersection wired for detection (ids are J<row>_<col>)
+  settle_s: 2.0                # wait after opening the port (the Uno restarts when it opens)
+  heartbeat_s: 1.0             # resend the lamp frame at least this often (board watchdog: 3 s)
+  detect_cooldown_s: 0.25      # ignore a second detection on one approach within this time
+  mirror: rl                   # grid the lamps show: rl (the AI) | fixed (the fixed-time plan)
+  realtime: true               # start at real time (--fast: start at the normal speed)
+  lamps: true                  # drive the signal heads
+  detectors: true              # let the IR sensors add vehicles to both grids
+  rf_preemption: true          # let the remote dispatch emergency vehicles / pause
+  instrumented_tls: J0_0       # the junction with the IR sensors (ids are J<row>_<col>)

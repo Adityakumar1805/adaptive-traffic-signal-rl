@@ -4,6 +4,8 @@
 Usage
 -----
     python run.py demo            # train-if-needed, then open the live dashboard
+    python run.py demo --hardware # ...driving the Arduino signal model (docs/HARDWARE.md)
+    python run.py hwtest          # check a newly built signal board, part by part
     python run.py train --quick   # fast training (a few minutes) -> atsc_<grid>_quick.pt
     python run.py train --overwrite   # full training; REPLACES the shipped checkpoint
     python run.py eval            # benchmark RL vs fixed-time vs max-pressure + plots
@@ -53,6 +55,11 @@ def cmd_doctor(args) -> int:
     check("fastapi", have("fastapi"), "(optional - stdlib server used if absent)")
     check("matplotlib", have("matplotlib"), "(needed for eval plots)")
     check("pandas", have("pandas"), "(needed for eval tables)")
+    check("pyserial", have("serial"), "(optional - only for the Arduino signal model)")
+    if have("serial"):
+        from atsc.hw.link import list_ports
+        boards = [f"{dev} ({desc})" for dev, desc, board in list_ports() if board]
+        check("signal board", bool(boards), ", ".join(boards) or "(none plugged in)")
 
     from atsc.sim.sumo_detect import detect_sumo
     info = detect_sumo()
@@ -177,10 +184,26 @@ def cmd_demo(args) -> int:
         log.info("No pretrained model found - training a quick one (a few minutes)...")
         from atsc.train.trainer import train_main
         train_main(cfg, quick=True)
+    hardware = None
+    if getattr(args, "hardware", False):
+        import importlib.util
+        from atsc.hw import hardware_settings
+        hardware = {"enabled": True, "port": args.port, "mirror": args.mirror,
+                    "realtime": not args.fast}
+        port = str(hardware_settings(cfg, hardware)["port"]).strip().lower()
+        if port != "loopback" and importlib.util.find_spec("serial") is None:
+            log.error("--hardware needs pyserial:  pip install pyserial==3.5")
+            return 1
     log.info("Starting the live dashboard. Press Ctrl+C to stop.")
     from atsc.dashboard.server import run_dashboard
-    run_dashboard(config_path=args.config)
+    run_dashboard(config_path=args.config, hardware=hardware)
     return 0
+
+
+def cmd_hwtest(args) -> int:
+    from atsc.hw.selftest import run_selftest
+    return run_selftest(port=args.port or "auto", listen_s=float(args.seconds),
+                        walk=not args.no_walk)
 
 
 def main() -> int:
@@ -190,7 +213,21 @@ def main() -> int:
     parser.add_argument("--debug", action="store_true", help="show full tracebacks on errors")
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("demo", help="train-if-needed then open the live dashboard")
+    p_demo = sub.add_parser("demo", help="train-if-needed then open the live dashboard")
+    p_demo.add_argument("--hardware", action="store_true",
+                        help="drive the Arduino signal model (docs/HARDWARE.md)")
+    p_demo.add_argument("--port", default=None,
+                        help="board's serial port, e.g. COM5 or /dev/cu.usbserial-110 "
+                             "(default: hardware.port in config.yaml, 'auto' finds it)")
+    p_demo.add_argument("--mirror", choices=["rl", "fixed"], default=None,
+                        help="which grid the lamps show (default rl: the AI)")
+    p_demo.add_argument("--fast", action="store_true",
+                        help="start at the normal dashboard speed instead of real time")
+    p_hw = sub.add_parser("hwtest", help="test a newly built signal board (lamps, sensors, remote)")
+    p_hw.add_argument("--port", default=None, help="serial port (default: auto-detect)")
+    p_hw.add_argument("--seconds", type=float, default=60.0,
+                      help="how long to listen for sensors and buttons (default 60)")
+    p_hw.add_argument("--no-walk", action="store_true", help="skip the lamp walk")
     p_train = sub.add_parser("train", help="train the RL controller")
     p_train.add_argument("--quick", action="store_true", help="fast, few-minute training")
     p_train.add_argument("--overwrite", action="store_true",
@@ -209,7 +246,7 @@ def main() -> int:
 
     dispatch = {
         "demo": cmd_demo, "train": cmd_train, "eval": cmd_eval,
-        "sim": cmd_sim, "doctor": cmd_doctor,
+        "sim": cmd_sim, "doctor": cmd_doctor, "hwtest": cmd_hwtest,
     }
     try:
         return dispatch[args.command](args)

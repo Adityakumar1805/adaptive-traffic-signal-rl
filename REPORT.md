@@ -242,6 +242,22 @@ matches it at high density and surpasses it at rush.
   a strong, throughput-optimal reference. Beating fixed-time by ~38% on average (61% at rush)
   against these baselines is a meaningful result.
 
+### 7.1 Hardware prototype
+
+A table-top model makes the controller physical (build guide: `docs/HARDWARE.md`). An Arduino
+Uno drives sixteen three-colour signal heads — one per approach of each junction — through
+six chained 74HC595 shift registers; the PC streams the RL grid's lamp state for every
+simulated second and replays it in real time, so the model shows the same amber (3 s) and
+all-red (2 s) the safety FSM inserts. Eight IR sensors at one junction act as count and
+presence detectors: a passing toy car becomes a vehicle in both simulated grids, and a car
+waiting at the stop line tops that approach's simulated queue up, to which the agents
+respond (median 15 s to green at medium demand, the earliest the 10 s minimum green and 5 s
+clearance allow). A 433 MHz remote issues emergency-vehicle requests that travel the same
+pre-emption path as the dashboard's. Frames carry a CRC-8, and three seconds without the PC
+put every head on flashing amber, the conventional controller-failure state. The hardware
+path is never used by training or the benchmark, and sensed vehicles are added without
+consuming random numbers, so the results in §6 are unaffected.
+
 ---
 
 ## 8. Limitations
@@ -276,6 +292,9 @@ matches it at high density and surpasses it at rush.
   (`qmix.enabled: true`) for centralised-training / decentralised-execution coordination.
 - **Real-map import** via OSM for an actual Bengaluru junction.
 - **Vision-based demand** — a camera/YOLO vehicle-count front end (future-work stub).
+- **Hardware towards the field** — the prototype (§7.1) lacks a conflict monitor, mains
+  lamps and a standard communication protocol (NTCIP/UTMC); detectors at all four junctions
+  and the policy on the controller itself would be the next steps.
 - **Larger grids and heterogeneous intersections** (turn lanes, protected phases).
 
 ---

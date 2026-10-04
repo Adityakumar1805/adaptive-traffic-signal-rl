@@ -1,5 +1,66 @@
 # Changelog
 
+## 1.2.0 — 2026-10-04
+
+### Unchanged on purpose
+
+The RL model, the shipped checkpoint, the safety FSM (`src/atsc/envs/phases.py`) and every
+published number. `python run.py eval` still regenerates `outputs/benchmark_results.csv` and
+`outputs/benchmark_summary.csv` byte-identically; training and the benchmark never import
+the hardware code. The hosted site is unaffected: hardware mode is off unless asked for, and
+`requirements-deploy.txt` is unchanged.
+
+### Added: the Arduino signal model (`docs/HARDWARE.md`)
+
+- **Firmware** `firmware/atsc_signal_node/` for an Arduino Uno (or Nano): 16 signal heads
+  through six chained 74HC595s, 8 IR sensors at J0_0 (arrival and queue), a 4-button 433 MHz
+  remote (ambulance, police car, fire engine, pause/resume), an optional OLED with its own
+  small text driver (no libraries to install) and a buzzer. Boot lamp test; **flashing amber
+  after 3 s without the PC**; CRC-checked frames; debounced inputs; 9.5 KB flash, 1.2 KB RAM.
+  Its logic lives in `atsc_core.h`, plain C++ that the tests compile on the PC.
+- **`python run.py demo --hardware [--port P] [--mirror fixed] [--fast]`**: the dashboard
+  drives the board. The lamps follow the RL grid (or the fixed-time one) **second by second
+  in real time** — `atsc/hw/mirror.py` replays the per-second lamp states the simulation
+  produces in bursts, so the 3 s amber and 2 s all-red last 3 s and 2 s on the model at any
+  dashboard speed. A sensed car is added to **both** grids (the race stays fair) without
+  drawing a random number (`MiniBackend.add_detected_arrival`), so the simulated traffic
+  around it is unchanged; a car waiting on a queue sensor tops that queue up; the remote
+  dispatches emergencies through the same validated path as the Inject buttons. The board
+  is opened on a background thread and reopened every 2 s while missing, so it can be
+  plugged in, unplugged and plugged back during a demo. The OLED shows live figures.
+- **Real-time speed** in hardware mode, labelled *real time* / *N× real time* on the slider,
+  and a status-bar pill: *signal board live · N cars sensed · N remote calls*. `/healthz`
+  includes a `hardware` block.
+- **`python run.py hwtest`**: finds the board, walks every head through green-amber-red
+  junction by junction, then ticks off each of the 8 sensors and 4 buttons as you trigger them.
+- `python run.py doctor` reports pyserial and any board plugged in; `pyserial==3.5` added to
+  `requirements.txt` (local only).
+- Protocol additions (`atsc/hw/protocol.py`): `>T` text lines for the OLED, `<E` with the
+  vehicle kind, `<C` control (pause/resume), `<I` node identity.
+- `docs/HARDWARE.md`: parts list, layout figure, wiring figures and the full table of which
+  output drives which lamp, upload, first power-on, self-test, calibration, remote pairing,
+  a five-minute viva demonstration, settings and troubleshooting. Figures are generated from
+  the firmware's own numbering by `tools/hardware_diagrams.py`.
+- `tools/virtual_board/`: the compiled firmware on a simulated ATmega328P (simavr) with a
+  simulated shift-register chain, OLED, sensors and remote, connected over a pseudo-terminal
+  to the real dashboard. Used to verify this release: every lamp change matched the RL grid,
+  amber 3.0 s and all-red 2.0 s on the board's own clock, sensors and buttons reached both
+  grids, hot-plug reconnected, worst-case serial bursts were all applied in order.
+- 43 tests in `tests/test_hardware.py` (195 in total): protocol, the firmware logic compiled
+  for the PC against the Python side (CRC, parser, lamp wiring, line resync, debounce, link
+  watchdog), real-time playback with a fake clock, reconnects, the session in hardware mode,
+  the RNG-invariance of sensed cars, hardware-off importing nothing, and the virtual board end
+  to end (skipped where the tools are missing).
+
+### Fixed / improved
+
+- The browser's playback clock now moves on steadily between frames instead of catching up
+  in jumps: on-screen vehicle speed varied by about ±30 % within every 200 ms frame interval
+  before, now by under 2 %, at the same average lag (and the new real-time speed, with a
+  frame only every 5 s, plays smoothly instead of in bursts).
+- The speed slider showed the page's placeholder (1×) for up to a second after loading
+  instead of the server's speed.
+
 ## 1.1.0 — 2026-10-01
 
 ### Unchanged on purpose

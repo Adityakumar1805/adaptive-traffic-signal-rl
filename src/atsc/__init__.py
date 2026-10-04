@@ -17,7 +17,8 @@ Package layout
     atsc.eval        benchmarking harness, metrics, plots
     atsc.vehicles    vehicle catalogue: Indian traffic mix + emergency types (cosmetic)
     atsc.dashboard   FastAPI + WebSocket real-time dashboard
+    atsc.hw          the Arduino signal model: protocol, playback, sensors (optional)
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = ["__version__"]

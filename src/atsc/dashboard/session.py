@@ -48,7 +48,11 @@ A side (``rl`` / ``ft``) carries, when they changed:
         (the same on both sides).  ``pr`` pre-empted junctions
 
 Global fields: ``k`` tick, ``bt`` simulator time, ``e`` episode time, ``p`` playing,
-``sp`` speed, ``sc`` scenario, ``h`` new chart points ``[e, rl wait, ft wait, rl q, ft q]``.
+``sp`` speed, ``sc`` scenario, ``h`` new chart points ``[e, rl wait, ft wait, rl q, ft q]``,
+and only with a physical signal board attached (``run.py demo --hardware``) ``hw``
+``[board 0 offline / 1 silent / 2 live, vehicles its sensors added, emergencies it sent]``;
+``hello`` then also carries ``rt``, the speed that is real time, and ``hw`` (port, the grid
+the lamps follow, the junction with the sensors).
 Keyframes also carry ``ep``, an episode counter that changes on every reset: a keyframe of
 the same episode can be *merged* into what the browser already has (events it already knows
 stay, so vehicles it is still animating do not vanish), one of a new episode replaces it. A
@@ -141,14 +145,26 @@ class _Recorder:
         self.tl: List[str] = []
         self.em_times: Dict[str, float] = {}     # emergency vehicle id -> time through the grid
         self._lamps_on = True
+        self._tap = None                         # hardware: (sim time, aspects) every second
         self.backend.set_event_hooks(self._on_enter, self._on_complete)
         env.set_signal_sink(self._on_signals)
 
     def set_lamp_recording(self, on: bool) -> None:
-        """Attach or detach the per-second lamp sink (not needed at speeds >= 4)."""
+        """Record the per-second lamp strings for the browser or not (not needed at speeds
+        >= 4). The sink itself stays attached while a hardware tap needs it."""
         if on != self._lamps_on:
             self._lamps_on = on
-            self.env.set_signal_sink(self._on_signals if on else None)
+            self._attach()
+
+    def set_tap(self, tap) -> None:
+        """Also hand every simulated second's lamp states to ``tap(sim_time, aspects)``
+        (the physical signal board). ``tap`` must not raise."""
+        self._tap = tap
+        self._attach()
+
+    def _attach(self) -> None:
+        on = self._lamps_on or self._tap is not None
+        self.env.set_signal_sink(self._on_signals if on else None)
 
     # The backend calls these mid-step, at its pre-increment clock, right after the vehicle
     # was discharged from the head of a queue and its leg index moved on: the vehicle crosses
@@ -183,6 +199,10 @@ class _Recorder:
         return out
 
     def _on_signals(self, aspects) -> None:
+        if self._tap is not None:
+            self._tap(self.backend.time, aspects)
+        if not self._lamps_on:
+            return
         if self.tl0 is None:
             self.tl0 = self.backend.time
         self.tl.append("".join(_lamp_char(state, phase) for state, phase in aspects))
@@ -291,7 +311,11 @@ class ControllerRunner:
 class DashboardSession:
     """Owns the RL and fixed-time runners, the command queue and the frame builder."""
 
-    def __init__(self, config_path: Optional[str] = None) -> None:
+    def __init__(self, config_path: Optional[str] = None,
+                 hardware: Optional[Dict[str, Any]] = None) -> None:
+        """``hardware`` overrides the ``hardware:`` block of the config (``run.py demo
+        --hardware`` passes ``{"enabled": True, "port": ...}``); with hardware disabled,
+        the default, nothing hardware-related is imported or run."""
         self.cfg = cfg = load_config(config_path)
 
         def dash(key: str, default: Any) -> Any:
@@ -344,8 +368,121 @@ class DashboardSession:
         self._last_keyframe = 0.0
         self._advanced = False
         self._record_history()
+
+        # optional physical signal board (docs/HARDWARE.md)
+        self.hw = None                     # atsc.hw.HardwareMirror while a board is attached
+        self.hw_settings: Optional[Dict[str, Any]] = None
+        self.rt_speed: Optional[float] = None
+        self._hw_counts = {"cars": 0, "queues": 0, "emergencies": 0, "ignored": 0}
+        self._hw_text_at = -1e9
+        wanted = (hardware or {}).get("enabled")
+        if wanted if wanted is not None else bool(cfg.get_path("hardware.enabled", False)):
+            self._setup_hardware(hardware)
+
         log.info("Dashboard session ready (scenario=%s, seed=%s, RL backend=%s, checkpoint=%s)",
                  self.scenario, self.seed, self.rl_backend_name, self.ckpt_name or "UNTRAINED")
+
+    # ------------------------------------------------------------------ #
+    # hardware (python run.py demo --hardware)
+    # ------------------------------------------------------------------ #
+    def _setup_hardware(self, overrides: Optional[Dict[str, Any]]) -> None:
+        from atsc.hw import hardware_settings, make_mirror
+
+        hw = hardware_settings(self.cfg, dict(overrides or {}, enabled=True))
+        self.hw_settings = hw
+        dec_s = float(self.cfg.signal.decision_interval_s)
+        topo = self.rl.env.topo
+        self.hw = make_mirror(hw, valid_tls=list(topo.order), n_phases=self.cfg.n_phases,
+                              decision_s=dec_s)
+        self._hw_runner = self.ft if hw["mirror"] == "ft" else self.rl
+        if hw["lamps"]:
+            self._hw_runner.recorder.set_tap(self.hw.push)
+            env = self._hw_runner.env          # the opening aspects were published before
+            self.hw.push(env.backend.time, env.signal_aspects())   # the tap existed
+        # "real time": one simulated second per real second, so a 3 s amber lasts 3 s
+        self.rt_speed = round(self.tick_s / dec_s, 6)
+        self.speeds = sorted(set(self.speeds) | {self.rt_speed, round(2 * self.rt_speed, 6)})
+        if hw["realtime"]:
+            self.speed = self.rt_speed
+        self.hw.start()
+        log.info("Hardware mode: port=%s, lamps follow the %s grid, sensors at %s, "
+                 "speed %s", hw["port"], "fixed-time" if hw["mirror"] == "ft" else "RL",
+                 hw["instrumented_tls"], self._speed_label(self.speed))
+
+    def _speed_label(self, speed: float) -> str:
+        if not self.rt_speed:
+            return f"{speed:g}x"
+        ratio = speed / self.rt_speed
+        return "real time" if abs(ratio - 1) < 1e-6 else f"{ratio:g}x real time"
+
+    def _hw_tick(self) -> None:
+        """Turn what the board reported into commands, and tell it how fast to play."""
+        for event in self.hw.take_events():
+            self._hw_event(event)
+        dec_s = float(self.cfg.signal.decision_interval_s)
+        # paused: play any seconds still queued (a manual step) at real time
+        self.hw.set_rate(self.speed * dec_s / self.tick_s if self.playing else 1.0)
+        now = time.monotonic()
+        if now - self._hw_text_at >= 1.0:
+            self._hw_text_at = now
+            self.hw.set_text(self._hw_text())
+
+    def _hw_event(self, event) -> None:
+        hw = self.hw_settings or {}
+        full = len(self._commands) >= _MAX_PENDING_COMMANDS
+        if event.kind in ("detect", "queue"):
+            if not hw.get("detectors", True) or full:
+                self._hw_counts["ignored"] += 1
+            elif event.kind == "detect":
+                self._commands.append(("detect", event.tls, event.approach, 1))
+            elif event.count > 0:
+                self._commands.append(("queue", event.tls, event.approach, min(event.count, 10)))
+        elif event.kind == "emergency":
+            kind = event.vehicle if event.vehicle in self._emergency_corridor else next(
+                (k for k, c in self._emergency_corridor.items() if c == event.corridor), None)
+            if not hw.get("rf_preemption", True) or kind is None:
+                self._hw_counts["ignored"] += 1
+                return
+            try:
+                self.submit({"a": "inject", "kind": kind, "corridor": event.corridor})
+                self._hw_counts["emergencies"] += 1
+            except CommandError as exc:
+                self._hw_counts["ignored"] += 1
+                log.info("Remote button ignored: %s", exc)
+        elif event.kind == "control" and event.action == "toggle" and not full:
+            self._commands.append(("pause",) if self.playing else ("play",))
+
+    def _hw_feed(self, tls: str, approach: str, n: int) -> int:
+        """Add ``n`` detected vehicles to both grids (the race stays fair)."""
+        if n <= 0 or self.rl.done or self.ft.done:
+            return 0
+        added = self.rl.env.feed_detection(tls, approach, n)
+        self.ft.env.feed_detection(tls, approach, n)
+        self._hw_counts["cars"] += added
+        return added
+
+    def _hw_text(self) -> List[str]:
+        """Four lines for the board's OLED (21 characters each)."""
+        rl_m, ft_m = self.rl.live_metrics(), self.ft.live_metrics()
+        e = int(self.rl.env._elapsed)
+        shown = "Fixed" if self._hw_runner is self.ft else "AI"
+        if not self.playing:
+            status = "PAUSED"
+        elif self.rl.active_emergencies():
+            status = f"EMERGENCY x{self.rl.active_emergencies()}"
+        else:
+            status = self._speed_label(self.speed)
+        return [f"{shown} lamps {e // 60:02d}:{e % 60:02d} {self.scenario}",
+                f"AI wait    {rl_m[0]:6.1f} s", f"Fixed wait {ft_m[0]:6.1f} s", status]
+
+    def close(self) -> None:
+        """Release the hardware (all-red, then close the port). Safe to call twice."""
+        with self._lock:
+            hw, self.hw = self.hw, None
+        if hw is not None:
+            hw.close()
+            for runner in (self.rl, self.ft):
+                runner.recorder.set_tap(None)
 
     # ------------------------------------------------------------------ #
     # commands
@@ -460,6 +597,16 @@ class DashboardSession:
             ft_id = self.ft.inject(kind, corridor)
             if rl_id is not None and ft_id is not None:
                 self._em_pairs.append((rl_id, ft_id))
+        elif action == "detect":                  # a car passed an IR sensor on the model
+            _a, tls, approach, n = cmd
+            self._hw_feed(tls, approach, n)
+        elif action == "queue":                   # a car is parked on a queue sensor
+            _a, tls, approach, n = cmd
+            if self.rl.done or self.ft.done:
+                return
+            self._hw_counts["queues"] += 1
+            # top the queue up to what the sensor implies, on the grid the board shows
+            self._hw_feed(tls, approach, n - self._hw_runner.env.backend.queue(tls, approach))
 
     # ------------------------------------------------------------------ #
     # stepping
@@ -468,6 +615,8 @@ class DashboardSession:
         """Apply queued commands, advance the race, and return the frame to broadcast
         (``None`` when nothing changed)."""
         with self._lock:
+            if self.hw is not None:
+                self._hw_tick()
             while self._commands:
                 self._apply(self._commands.popleft())
             steps = self._manual_steps
@@ -503,7 +652,11 @@ class DashboardSession:
     # frames
     # ------------------------------------------------------------------ #
     def _global(self) -> Dict[str, Any]:
-        return {"p": int(self.playing), "sp": self.speed, "sc": self.scenario}
+        g: Dict[str, Any] = {"p": int(self.playing), "sp": self.speed, "sc": self.scenario}
+        if self.hw is not None:
+            # board: 0 offline, 1 port open but silent, 2 live; cars and emergencies it sent
+            g["hw"] = [self.hw.state(), self._hw_counts["cars"], self._hw_counts["emergencies"]]
+        return g
 
     def _paired_clearance(self) -> Tuple[int, float, float]:
         """Mean clearance time on each grid over the emergency vehicles that have cleared
@@ -659,11 +812,23 @@ class DashboardSession:
                 "win": self.window, "qcap": self.queue_cap,
                 "meta": {"nn": self.rl_backend_name, "ckpt": self.ckpt_exists,
                          "ckpt_name": self.ckpt_name, "max_em": self.max_active_emergencies},
+                **self._hw_hello(),
                 "state": self._keyframe_locked(),
             }
 
+    def _hw_hello(self) -> Dict[str, Any]:
+        if self.hw is None or not self.hw_settings:
+            return {}
+        hw = self.hw_settings
+        return {"rt": self.rt_speed,
+                "hw": {"port": str(hw["port"]), "mirror": hw["mirror"],
+                       "tls": str(hw["instrumented_tls"])}}
+
     def info(self) -> Dict[str, Any]:
         with self._lock:
-            return {"tick": self.tick_count, "playing": self.playing, "speed": self.speed,
-                    "scenario": self.scenario, "elapsed_s": int(self.rl.env._elapsed),
-                    "nn_backend": self.rl_backend_name, "checkpoint": self.ckpt_name}
+            out = {"tick": self.tick_count, "playing": self.playing, "speed": self.speed,
+                   "scenario": self.scenario, "elapsed_s": int(self.rl.env._elapsed),
+                   "nn_backend": self.rl_backend_name, "checkpoint": self.ckpt_name}
+            if self.hw is not None:
+                out["hardware"] = dict(self.hw.snapshot(), **self._hw_counts)
+            return out

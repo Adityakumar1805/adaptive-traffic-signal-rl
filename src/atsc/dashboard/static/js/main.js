@@ -61,6 +61,11 @@ function onMessage(msg) {
     ui.setHello(model);
     resizeAll();
   }
+  if (model.g.sp > 0) {
+    // speed = decisions per tick: below 1 a frame still advances one decision at a time
+    const dec = +model.hello.dec_s || 5, tick = (+model.hello.tick_ms || 200) / 1000;
+    clock.nominal(model.g.sp * dec / tick, Math.max(1, model.g.sp) * dec);
+  }
   clock.frame(model.bt, !!model.g.p, now, model.newEpisode);
   ui.update(model);
 }

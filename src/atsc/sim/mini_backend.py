@@ -508,6 +508,31 @@ class MiniBackend(SimBackend):
         self._queues[(veh.tls, veh.approach)].append(veh)
         return vid
 
+    # ------------------------------------------------------------------ #
+    # vehicles seen by real detectors (hardware-in-the-loop, see atsc.hw)
+    # ------------------------------------------------------------------ #
+    def add_detected_arrival(self, tls_id: str, approach: str, count: int = 1,
+                             kind: str = "car") -> int:
+        """Queue ``count`` vehicles that a real sensor saw arriving on ``approach`` of
+        ``tls_id``; returns how many were added.
+
+        Each one drives straight on across the grid and is drawn as ``kind``. No random
+        number is drawn, so every simulated arrival that follows is exactly the one the same
+        seed would have produced anyway - the detected vehicles simply join that traffic.
+        Called only by the dashboard's hardware mode; training and the benchmark never call it.
+        """
+        if (tls_id, approach) not in self._queues or count <= 0:
+            return 0
+        legs = self._straight_corridor(tls_id, approach)
+        if not legs:
+            return 0
+        exit_dir = APPROACH_TO_TRAVEL[approach]          # straight on: it leaves the way it drove
+        for _ in range(int(count)):
+            self._veh_counter += 1
+            veh = Vehicle(f"v{self._veh_counter}", list(legs), self._t, kind=kind, exit_dir=exit_dir)
+            self._queues[(tls_id, approach)].append(veh)
+        return int(count)
+
     def _straight_corridor(self, entry_tls: str, entry_approach: str) -> List[Tuple[str, str]]:
         rows, cols = self.topo.grid_rows, self.topo.grid_cols
         it = self.topo.get(entry_tls)

@@ -187,6 +187,14 @@ input[type=range] { width: 150px; accent-color: var(--go); min-height: 28px; }
 .conn.on { background: var(--go); box-shadow: 0 0 8px var(--go); }
 .conn.poll { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 #statusText { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+/* the physical signal board (hardware mode only) */
+.hw-pill { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 2px 9px;
+  border: 1px solid var(--line); border-radius: 999px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.hw-pill #hwMore { margin-left: -6px; }
+.hw-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--stop); flex: none; }
+.hw-pill[data-state="wait"] i { background: var(--amber); }
+.hw-pill[data-state="on"] i { background: var(--go); box-shadow: 0 0 8px var(--go); }
+.hw-pill[data-state="on"] { border-color: color-mix(in srgb, var(--go) 45%, var(--line)); }
 
 /* ---------- toast ---------- */
 .toast {

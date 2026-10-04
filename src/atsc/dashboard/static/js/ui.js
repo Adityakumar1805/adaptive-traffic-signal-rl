@@ -26,9 +26,24 @@ export function signedChange(rl, ft) {
   if (Number(shown) === 0) return { text: "0 %", value: 0 };
   return { text: (v > 0 ? "+" : MINUS) + shown + " %", value: v };
 }
-export function fmtSpeed(s) {
+/** Speed label. With a signal board attached the server names its real-time speed `rt`,
+ *  and every speed is shown as a multiple of real time. */
+export function fmtSpeed(s, rt) {
+  if (rt > 0) {
+    const r = s / rt;
+    return Math.abs(r - 1) < 1e-6 ? "real time" : `${+r.toFixed(1)}× real time`;
+  }
   return (Number.isInteger(s) ? String(s) : String(+s.toFixed(2))) + "×";
 }
+
+// signal-board pill: [state class, short text, details shown on wider screens (they start
+// with a no-break space: a leading plain space would be dropped inside the flex pill)]
+const BOARD = [
+  ["off", () => "board offline", (hw) => `\u00a0- plug it in (${hw.port})`],
+  ["wait", () => "board connecting", (hw) => `\u00a0- port ${hw.port} open, waiting for the board`],
+  ["on", () => "signal board live",
+   (hw, cars, em) => `\u00a0· ${cars} car${cars === 1 ? "" : "s"} sensed · ${em} remote call${em === 1 ? "" : "s"}`],
+];
 
 const STATUS = {
   connecting: ["connecting…", "off"],
@@ -52,13 +67,16 @@ export class UI {
       progress: $("epProgress"), ckpt: $("ckpt"), nn: $("nnBackend"), rtt: $("rtt"),
       toast: $("toast"), announce: $("announce"), wake: $("wake"), wakeTitle: $("wakeTitle"),
       wakeText: $("wakeText"), wakeElapsed: $("wakeElapsed"), wakeAttempt: $("wakeAttempt"),
-      grid: $("gridLabel"), untrained: $("untrained"),
+      grid: $("gridLabel"), untrained: $("untrained"), hw: $("hwPill"), hwText: $("hwText"),
+      hwMore: $("hwMore"),
     };
     this.kpi = {};
     for (const node of document.querySelectorAll("[data-k]")) this.kpi[node.dataset.k] = node;
     this.speeds = [1];
+    this.rt = 0;
+    this.boardState = -1;
     this.playing = true;
-    this.speedTouchedAt = 0;
+    this.speedTouchedAt = -1e9;     // last time the user moved the slider (never yet)
     this.legendItems = [];
     this.legendAt = 0;
     this.lastEmergency = "";
@@ -83,8 +101,8 @@ export class UI {
     el.speed.addEventListener("input", () => {
       this.speedTouchedAt = performance.now();
       const v = speedValue();
-      setText(el.speedOut, fmtSpeed(v));
-      el.speed.setAttribute("aria-valuetext", fmtSpeed(v));
+      setText(el.speedOut, fmtSpeed(v, this.rt));
+      el.speed.setAttribute("aria-valuetext", fmtSpeed(v, this.rt));
       clearTimeout(debounce);
       debounce = setTimeout(() => this.send({ a: "speed", v }), 120);
     });
@@ -122,6 +140,7 @@ export class UI {
     el.scenario.value = model.g.sc || current || hello.scen[0][0];
     // speeds
     this.speeds = hello.speeds.slice();
+    this.rt = +hello.rt || 0;
     el.speed.min = "0";
     el.speed.max = String(this.speeds.length - 1);
     el.speed.step = "1";
@@ -175,6 +194,23 @@ export class UI {
     setText(el.ckpt, hello.meta.ckpt ? (hello.meta.ckpt_name || "loaded") : "untrained");
     setText(el.nn, hello.meta.nn || "–");
     if (el.untrained) el.untrained.hidden = !!hello.meta.ckpt;
+    if (el.hw) el.hw.hidden = !hello.hw;
+    this.boardState = -1;
+  }
+
+  /** The signal-board pill (hardware mode only): offline / waiting / live + counts. */
+  showBoard(model) {
+    const el = this.el, hw = model.hello.hw, g = model.g.hw;
+    if (!hw || !el.hw || !Array.isArray(g)) return;
+    const [state, cars, em] = g;
+    const [cls, text, more] = BOARD[state] || BOARD[0];
+    if (el.hw.dataset.state !== cls) el.hw.dataset.state = cls;
+    setText(el.hwText, text());
+    setText(el.hwMore, more(hw, cars, em));
+    if (state !== this.boardState) {
+      if (this.boardState >= 0) this.announce(state === 2 ? "Signal board connected" : "Signal board disconnected");
+      this.boardState = state;
+    }
   }
 
   showSpeed(sp) {
@@ -184,8 +220,8 @@ export class UI {
     if (idx < 0) idx = this.speeds.reduce((best, s, i) => (Math.abs(s - sp) < Math.abs(this.speeds[best] - sp) ? i : best), 0);
     if (performance.now() - this.speedTouchedAt > 1500 && document.activeElement !== el.speed) {
       if (el.speed.value !== String(idx)) el.speed.value = String(idx);
-      setText(el.speedOut, fmtSpeed(sp));
-      el.speed.setAttribute("aria-valuetext", fmtSpeed(sp));
+      setText(el.speedOut, fmtSpeed(sp, this.rt));
+      el.speed.setAttribute("aria-valuetext", fmtSpeed(sp, this.rt));
     }
   }
 
@@ -198,6 +234,7 @@ export class UI {
     setClass(el.play, "primary", this.playing);
     if (g.sc && el.scenario.value !== g.sc && document.activeElement !== el.scenario) el.scenario.value = g.sc;
     this.showSpeed(g.sp);
+    this.showBoard(model);
     const e = Math.round(g.e || 0);
     setText(el.elapsed, String(e));
     if (el.progress) {

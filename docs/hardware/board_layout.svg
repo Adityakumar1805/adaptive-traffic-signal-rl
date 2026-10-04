@@ -1,0 +1,180 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1080' width='1000' height='1080'>
+  <rect width='1000' height='1080' fill='#ffffff'/>
+  <rect x='50' y='50' width='900' height='900' fill='#d9cfb5' stroke='#8a7d5c' stroke-width='3' rx='6'/>
+  <text x='500' y='36' font-size='18' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>Top view of the 2x2 model (about 90 cm x 90 cm), North up. Traffic keeps LEFT.</text>
+  <rect x='50' y='250' width='900' height='100' fill='#3a3d42' stroke='none' stroke-width='1' rx='0'/>
+  <rect x='250' y='50' width='100' height='900' fill='#3a3d42' stroke='none' stroke-width='1' rx='0'/>
+  <rect x='50' y='650' width='900' height='100' fill='#3a3d42' stroke='none' stroke-width='1' rx='0'/>
+  <rect x='650' y='50' width='100' height='900' fill='#3a3d42' stroke='none' stroke-width='1' rx='0'/>
+  <line x1='50' y1='300' x2='950' y2='300' stroke='#f7d046' stroke-width='2' stroke-dasharray='14 10'/>
+  <line x1='300' y1='50' x2='300' y2='950' stroke='#f7d046' stroke-width='2' stroke-dasharray='14 10'/>
+  <line x1='50' y1='700' x2='950' y2='700' stroke='#f7d046' stroke-width='2' stroke-dasharray='14 10'/>
+  <line x1='700' y1='50' x2='700' y2='950' stroke='#f7d046' stroke-width='2' stroke-dasharray='14 10'/>
+  <line x1='70' y1='675' x2='930' y2='675' stroke='#e53935' stroke-width='4' stroke-dasharray='3 9'/>
+  <line x1='725' y1='70' x2='725' y2='930' stroke='#42a5f5' stroke-width='4' stroke-dasharray='3 9'/>
+  <rect x='250' y='250' width='100' height='100' fill='#45484e' stroke='none' stroke-width='1' rx='0'/>
+  <text x='300' y='306' font-size='18' fill='#ffffff' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>J0_0</text>
+  <line x1='300' y1='246' x2='350' y2='246' stroke='#ffffff' stroke-width='5'/>
+  <line x1='354' y1='300' x2='354' y2='350' stroke='#ffffff' stroke-width='5'/>
+  <line x1='250' y1='354' x2='300' y2='354' stroke='#ffffff' stroke-width='5'/>
+  <line x1='246' y1='250' x2='246' y2='300' stroke='#ffffff' stroke-width='5'/>
+  <line x1='325.0' y1='154' x2='325.0' y2='206' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='325.0,216 318.0,206 332.0,206' fill='#f4f4f4'/>
+  <line x1='446' y1='325.0' x2='394' y2='325.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='384,325.0 394,318.0 394,332.0' fill='#f4f4f4'/>
+  <line x1='275.0' y1='446' x2='275.0' y2='394' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='275.0,384 282.0,394 268.0,394' fill='#f4f4f4'/>
+  <line x1='154' y1='275.0' x2='206' y2='275.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='216,275.0 206,282.0 206,268.0' fill='#f4f4f4'/>
+  <rect x='357.0' y='197.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='366' cy='206' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='366' cy='220' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='366' cy='234' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='374' y='191.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H0 N</text>
+  <rect x='357.0' y='357.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='366' cy='366' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='380' cy='366' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='394' cy='366' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='380' y='390.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H1 E</text>
+  <rect x='225.0' y='357.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='234' cy='366' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='234' cy='380' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='234' cy='394' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='226' y='418.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H2 S</text>
+  <rect x='197.0' y='225.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='206' cy='234' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='220' cy='234' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='234' cy='234' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='220' y='219.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H3 W</text>
+  <rect x='650' y='250' width='100' height='100' fill='#45484e' stroke='none' stroke-width='1' rx='0'/>
+  <text x='700' y='306' font-size='18' fill='#ffffff' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>J0_1</text>
+  <line x1='700' y1='246' x2='750' y2='246' stroke='#ffffff' stroke-width='5'/>
+  <line x1='754' y1='300' x2='754' y2='350' stroke='#ffffff' stroke-width='5'/>
+  <line x1='650' y1='354' x2='700' y2='354' stroke='#ffffff' stroke-width='5'/>
+  <line x1='646' y1='250' x2='646' y2='300' stroke='#ffffff' stroke-width='5'/>
+  <line x1='725.0' y1='154' x2='725.0' y2='206' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='725.0,216 718.0,206 732.0,206' fill='#f4f4f4'/>
+  <line x1='846' y1='325.0' x2='794' y2='325.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='784,325.0 794,318.0 794,332.0' fill='#f4f4f4'/>
+  <line x1='675.0' y1='446' x2='675.0' y2='394' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='675.0,384 682.0,394 668.0,394' fill='#f4f4f4'/>
+  <line x1='554' y1='275.0' x2='606' y2='275.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='616,275.0 606,282.0 606,268.0' fill='#f4f4f4'/>
+  <rect x='757.0' y='197.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='766' cy='206' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='766' cy='220' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='766' cy='234' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='774' y='191.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H4 N</text>
+  <rect x='757.0' y='357.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='766' cy='366' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='780' cy='366' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='794' cy='366' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='780' y='390.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H5 E</text>
+  <rect x='625.0' y='357.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='634' cy='366' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='634' cy='380' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='634' cy='394' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='626' y='418.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H6 S</text>
+  <rect x='597.0' y='225.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='606' cy='234' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='620' cy='234' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='634' cy='234' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='620' y='219.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H7 W</text>
+  <rect x='250' y='650' width='100' height='100' fill='#45484e' stroke='none' stroke-width='1' rx='0'/>
+  <text x='300' y='706' font-size='18' fill='#ffffff' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>J1_0</text>
+  <line x1='300' y1='646' x2='350' y2='646' stroke='#ffffff' stroke-width='5'/>
+  <line x1='354' y1='700' x2='354' y2='750' stroke='#ffffff' stroke-width='5'/>
+  <line x1='250' y1='754' x2='300' y2='754' stroke='#ffffff' stroke-width='5'/>
+  <line x1='246' y1='650' x2='246' y2='700' stroke='#ffffff' stroke-width='5'/>
+  <line x1='325.0' y1='554' x2='325.0' y2='606' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='325.0,616 318.0,606 332.0,606' fill='#f4f4f4'/>
+  <line x1='446' y1='725.0' x2='394' y2='725.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='384,725.0 394,718.0 394,732.0' fill='#f4f4f4'/>
+  <line x1='275.0' y1='846' x2='275.0' y2='794' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='275.0,784 282.0,794 268.0,794' fill='#f4f4f4'/>
+  <line x1='154' y1='675.0' x2='206' y2='675.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='216,675.0 206,682.0 206,668.0' fill='#f4f4f4'/>
+  <rect x='357.0' y='597.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='366' cy='606' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='366' cy='620' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='366' cy='634' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='374' y='591.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H8 N</text>
+  <rect x='357.0' y='757.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='366' cy='766' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='380' cy='766' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='394' cy='766' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='380' y='790.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H9 E</text>
+  <rect x='225.0' y='757.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='234' cy='766' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='234' cy='780' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='234' cy='794' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='226' y='818.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H10 S</text>
+  <rect x='197.0' y='625.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='206' cy='634' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='220' cy='634' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='234' cy='634' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='220' y='619.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H11 W</text>
+  <rect x='650' y='650' width='100' height='100' fill='#45484e' stroke='none' stroke-width='1' rx='0'/>
+  <text x='700' y='706' font-size='18' fill='#ffffff' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>J1_1</text>
+  <line x1='700' y1='646' x2='750' y2='646' stroke='#ffffff' stroke-width='5'/>
+  <line x1='754' y1='700' x2='754' y2='750' stroke='#ffffff' stroke-width='5'/>
+  <line x1='650' y1='754' x2='700' y2='754' stroke='#ffffff' stroke-width='5'/>
+  <line x1='646' y1='650' x2='646' y2='700' stroke='#ffffff' stroke-width='5'/>
+  <line x1='725.0' y1='554' x2='725.0' y2='606' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='725.0,616 718.0,606 732.0,606' fill='#f4f4f4'/>
+  <line x1='846' y1='725.0' x2='794' y2='725.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='784,725.0 794,718.0 794,732.0' fill='#f4f4f4'/>
+  <line x1='675.0' y1='846' x2='675.0' y2='794' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='675.0,784 682.0,794 668.0,794' fill='#f4f4f4'/>
+  <line x1='554' y1='675.0' x2='606' y2='675.0' stroke='#f4f4f4' stroke-width='3'/>
+  <polygon points='616,675.0 606,682.0 606,668.0' fill='#f4f4f4'/>
+  <rect x='757.0' y='597.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='766' cy='606' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='766' cy='620' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='766' cy='634' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='774' y='591.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H12 N</text>
+  <rect x='757.0' y='757.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='766' cy='766' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='780' cy='766' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='794' cy='766' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='780' y='790.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H13 E</text>
+  <rect x='625.0' y='757.0' width='18' height='46' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='634' cy='766' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='634' cy='780' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='634' cy='794' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='626' y='818.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H14 S</text>
+  <rect x='597.0' y='625.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='606' cy='634' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='620' cy='634' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='634' cy='634' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='620' y='619.0' font-size='13' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>H15 W</text>
+  <rect x='350' y='151' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='374' y='165' font-size='13' fill='#0d47a1' text-anchor='start' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>Q-N  D6</text>
+  <rect x='350' y='66' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='374' y='80' font-size='13' fill='#0d47a1' text-anchor='start' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>A-N  D2</text>
+  <rect x='431' y='350' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='440' y='385' font-size='13' fill='#0d47a1' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>Q-E  D7</text>
+  <rect x='516' y='350' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='525' y='385' font-size='13' fill='#0d47a1' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>A-E  D3</text>
+  <rect x='232' y='431' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='226' y='445' font-size='13' fill='#0d47a1' text-anchor='end' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>Q-S  D8</text>
+  <rect x='232' y='516' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='226' y='530' font-size='13' fill='#0d47a1' text-anchor='end' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>A-S  D4</text>
+  <rect x='151' y='232' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='160' y='226' font-size='13' fill='#0d47a1' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>Q-W  D9</text>
+  <rect x='66' y='232' width='18' height='18' fill='#1565c0' stroke='#0d47a1' stroke-width='2' rx='3'/>
+  <text x='75' y='226' font-size='13' fill='#0d47a1' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>A-W  D5</text>
+  <rect x='70' y='968' width='14' height='14' fill='#1565c0' stroke='none' stroke-width='1' rx='3'/>
+  <text x='92' y='980' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>IR sensor at J0_0 (A = arrival, Q = queue) and its Arduino pin</text>
+  <rect x='537.0' y='966.0' width='46' height='18' fill='#1d1d1d' stroke='#000' stroke-width='1' rx='4'/>
+  <circle cx='546' cy='975' r='5' fill='#e53935' stroke='none' stroke-width='1'/>
+  <circle cx='560' cy='975' r='5' fill='#ffb300' stroke='none' stroke-width='1'/>
+  <circle cx='574' cy='975' r='5' fill='#43a047' stroke='none' stroke-width='1'/>
+  <text x='590' y='980' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>signal head Hn: n = junction x 4 + side (N 0, E 1, S 2, W 3)</text>
+  <line x1='70' y1='1010' x2='120' y2='1010' stroke='#e53935' stroke-width='4' stroke-dasharray='3 9'/>
+  <text x='130' y='1015' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>ambulance and fire engine (remote A, C): enter J1_0 from the west, leave J1_1 to the east</text>
+  <line x1='70' y1='1040' x2='120' y2='1040' stroke='#42a5f5' stroke-width='4' stroke-dasharray='3 9'/>
+  <text x='130' y='1045' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>police car (remote B): enters J0_1 from the north, leaves J1_1 to the south</text>
+  <polyline points='905,140 915,110 925,140' fill='#111' stroke='#111' stroke-width='2' stroke-linejoin='round'/>
+  <text x='915' y='100' font-size='16' fill='#111' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>N</text>
+</svg>

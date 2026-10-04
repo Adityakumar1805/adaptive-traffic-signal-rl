@@ -216,7 +216,7 @@ Open the site on a desktop browser with DevTools (F12) open, then on a phone.
 
 | # | Check | What you should see |
 |---|---|---|
-| 1 | the build is the new one | `https://<site>/healthz` returns JSON with `"version": "1.1.0"`, a `build` id, `"tick_errors": 0`, and `cpu_percent.last_30s` in low single digits while nobody else is watching (a value near 10 means the 0.1-CPU instance is saturated) |
+| 1 | the build is the new one | `https://<site>/healthz` returns JSON with `"version": "1.2.0"`, a `build` id, `"tick_errors": 0`, and `cpu_percent.last_30s` in low single digits while nobody else is watching (a value near 10 means the 0.1-CPU instance is saturated) |
 | 2 | the WebSocket connects | the bottom bar reads **live · streaming** with a green dot; Network -> WS shows `/ws` with status **101** |
 | 3 | no console errors | the Console is empty, and the Issues tab has no "form field" or CSP issues |
 | 4 | no failed requests | every request is 200 / 304, or 101 for the socket; no 403 on `/ws` |
@@ -239,7 +239,7 @@ race to rush hour at 8×.
 
 | The bar says | Meaning | What to do |
 |---|---|---|
-| **live · polling** | HTTP works but the socket does not | Network -> WS: a **403** means the old `server.py` is still deployed (check `/healthz` for version 1.1.0); a failed upgrade with no response usually means a proxy, VPN or antivirus blocks WebSockets on your network — try another network or a phone on mobile data |
+| **live · polling** | HTTP works but the socket does not | Network -> WS: a **403** means the old `server.py` is still deployed (check `/healthz` for version 1.2.0); a failed upgrade with no response usually means a proxy, VPN or antivirus blocks WebSockets on your network — try another network or a phone on mobile data |
 | **connecting…** / **reconnecting…** for long | the server is not answering | Render dashboard -> the service -> **Logs**: look for a crash or a failed health check; **Events** shows whether the deploy finished |
 | **Waking up the server…** for more than ~2 min | the free instance is not starting | check the Render dashboard for a failed deploy or a suspended service |
 | **server full · retrying** | `dashboard.max_clients` viewers are connected | raise it in `config.yaml` if the instance has room (see the measurements above) |

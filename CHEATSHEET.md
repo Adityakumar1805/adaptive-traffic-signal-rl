@@ -68,6 +68,15 @@ baselines on identical seeds + a dependency-optional design that just runs anywh
 live dashboard. Most prior student works do one junction, one scenario, no safety, no
 emergencies."
 
+**13. The hardware model (if they ask "is it real?").** An Arduino Uno drives 16 signal heads
+through six 74HC595 shift registers (48 LEDs from 3 pins) and shows exactly what the RL grid
+shows, **in real time** — 3 s amber, 2 s all-red, as the FSM decides. IR sensors at J0_0 add
+toy cars to *both* simulated grids (fair race); a 433 MHz remote dispatches an ambulance,
+police car or fire engine. Every frame carries a CRC-8 so noise cannot switch a lamp, and
+3 s without the PC puts every head on **flashing amber**, like a real controller failure.
+*(`firmware/atsc_signal_node`, `src/atsc/hw/mirror.py`, `docs/HARDWARE.md` §12 for the demo)*
+Commands: `python run.py hwtest` (check the board) · `python run.py demo --hardware`.
+
 ---
 
 **Two things NOT to overstate:** emergency clearance is **~1.3–3.5×**, not 10×; and rush is

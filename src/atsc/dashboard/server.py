@@ -199,6 +199,7 @@ def build_app(session: DashboardSession):
             with suppress(asyncio.CancelledError):
                 await task
             await hub.close_all()
+            session.close()                  # a signal board, if any: all-red, port closed
 
     app = FastAPI(title="Adaptive Traffic Signal Control - Live Dashboard", lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
@@ -326,10 +327,12 @@ def _open_later(url: str) -> None:
 
 
 def run_dashboard(config_path: Optional[str] = None, host: Optional[str] = None,
-                  port: Optional[int] = None, open_browser: Optional[bool] = None) -> None:
+                  port: Optional[int] = None, open_browser: Optional[bool] = None,
+                  hardware: Optional[Dict[str, Any]] = None) -> None:
     """Start the dashboard: FastAPI + uvicorn (WebSocket) when available, else the
-    zero-dependency standard-library server (polling)."""
-    session = DashboardSession(config_path)
+    zero-dependency standard-library server (polling). ``hardware`` attaches a physical
+    signal board (see ``docs/HARDWARE.md``)."""
+    session = DashboardSession(config_path, hardware=hardware)
     session.play()
 
     host = host or str(session.cfg.dashboard.host)

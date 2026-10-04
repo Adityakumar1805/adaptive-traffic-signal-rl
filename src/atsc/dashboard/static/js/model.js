@@ -273,7 +273,7 @@ export class Model {
       }
       kind = "delta";
     }
-    for (const key of ["k", "e", "p", "sp", "sc"]) if (msg[key] !== undefined) this.g[key] = msg[key];
+    for (const key of ["k", "e", "p", "sp", "sc", "hw"]) if (msg[key] !== undefined) this.g[key] = msg[key];
     for (const side of Object.values(this.sides)) side.prune(this.bt);
     this.rev += 1;
     return kind;
@@ -293,22 +293,42 @@ export class SimClock {
     this.bt = 0;
     this.span = 5;          // simulated seconds per frame (EMA)
     this.rate = 25;         // simulated seconds per wall second (EMA)
+    this.nominalRate = 0;
+    this.sinceFrame = 0;    // wall seconds since bt last moved
     this.lastWall = 0;
     this.playing = false;
     this.started = false;
   }
 
+  /**
+   * The rate and frame span the server intends at its current speed. Snapping to them when
+   * the speed changes makes a new speed right at once; the running estimate in frame() then
+   * only follows a server or network that falls behind. At "real time" (hardware mode) a
+   * frame advances the simulation only every 5 s, which an estimate alone would take
+   * several such frames to learn.
+   */
+  nominal(rate, span) {
+    if (!(rate > 0) || rate === this.nominalRate) return;
+    this.nominalRate = rate;
+    this.rate = rate;
+    if (span > 0) this.span = span;
+  }
+
   /** A frame with simulator time `bt` arrived at wall time `now` (ms). */
   frame(bt, playing, now, reset) {
+    const resumed = playing && !this.playing;
     this.playing = playing;
     if (!this.started || reset || bt < this.bt - 1e-6) {
-      this.bt = bt; this.vt = bt; this.lastWall = now; this.started = true;
+      this.bt = bt; this.vt = bt; this.lastWall = now; this.started = true; this.sinceFrame = 0;
       return;
     }
     const dbt = bt - this.bt;
+    if (dbt > 0) this.sinceFrame = 0;
     const dw = (now - this.lastWall) / 1000;
-    if (dbt > 0) {
-      if (dw > 0.02 && dw < 5) {
+    if (!playing || resumed) {
+      this.lastWall = now;      // time spent paused says nothing about the playback rate
+    } else if (dbt > 0) {
+      if (dw > 0.02 && dw < 30) {
         this.rate += 0.25 * (dbt / dw - this.rate);
         this.span += 0.25 * (dbt - this.span);
       }
@@ -326,7 +346,12 @@ export class SimClock {
       if (Math.abs(this.bt - this.vt) < 0.01) this.vt = this.bt;
       return this.vt;
     }
-    const target = this.bt - span;
+    // The target moves on at the playback rate between frames instead of jumping when one
+    // arrives, so the speed stays steady even when frames are 5 s apart (real time), and it
+    // trails the newest frame by 0.5 to 1.5 spans - the same average lag as aiming a fixed
+    // span behind, with half a span in hand for a late frame.
+    this.sinceFrame += dt;
+    const target = this.bt - 1.5 * span + Math.min(span, this.sinceFrame * this.rate);
     const err = target - this.vt;
     if (Math.abs(err) > 3 * span) this.vt = target;           // far off (tab was hidden)
     else this.vt += this.rate * dt * (1 + Math.max(-0.5, Math.min(0.5, err / span)));

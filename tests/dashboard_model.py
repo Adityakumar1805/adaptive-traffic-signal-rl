@@ -235,7 +235,7 @@ class Model:
                         self.sides[name].delta(msg[name], bt10)
                 self.h.extend(list(p) for p in msg.get("h", []))
                 self.h = self.h[-self.window:]
-            for key in ("k", "e", "p", "sp", "sc"):
+            for key in ("k", "e", "p", "sp", "sc", "hw"):
                 if key in msg:
                     self.g[key] = msg[key]
             for side in self.sides.values():

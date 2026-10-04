@@ -137,10 +137,11 @@ class MultiAgentTrafficEnv:
     def feed_detection(self, tls: str, approach: str, count: int = 1) -> int:
         """Inject ``count`` vehicles seen by a *real* detector; returns how many landed.
 
-        Hardware hook (see :mod:`atsc.hw`), not wired to anything yet. It delegates to an
-        optional backend method ``add_detected_arrival``; neither shipped backend implements
-        it today, so this returns 0. A future implementation must draw routes from its own
-        RNG stream so hardware traffic cannot perturb the published benchmark sequence.
+        Hardware hook (see :mod:`atsc.hw`), used by the dashboard's hardware mode
+        (``python run.py demo --hardware``) when an IR sensor on the model sees a car. It
+        delegates to the backend's optional ``add_detected_arrival``: the built-in simulator
+        implements it without drawing a random number, so the simulated arrival sequence is
+        unchanged; SUMO does not, and gets 0. Training and the benchmark never call it.
         """
         if tls not in self.fsms or count <= 0:
             return 0

@@ -21,5 +21,6 @@ dependencies:
       - fastapi==0.111.0
       - uvicorn[standard]==0.30.1
       - pytest==8.2.0
+      - pyserial==3.5        # optional: the Arduino signal model (docs/HARDWARE.md)
       # - traci==1.18.0
       # - sumolib==1.18.0

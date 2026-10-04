@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from typing import Deque, List, Optional
+from typing import Deque, List, Optional, Tuple
 
 #: partial-line buffer ceiling; a wedged port cannot grow memory without bound
 _MAX_BUFFER = 4096
@@ -74,7 +74,9 @@ class NullLink(Link):
 
 
 class LoopbackLink(Link):
-    """In-memory link. ``written`` records downlink frames; ``feed`` queues uplink lines."""
+    """In-memory link. ``written`` records downlink frames; ``feed`` queues uplink lines.
+
+    Safe to feed from one thread while another reads (the dashboard's hardware thread)."""
 
     name = "loopback"
 
@@ -94,8 +96,12 @@ class LoopbackLink(Link):
         self._inbox.append(line)
 
     def read_lines(self) -> List[str]:
-        lines, self._inbox = list(self._inbox), deque()
-        return lines
+        lines: List[str] = []
+        while True:
+            try:
+                lines.append(self._inbox.popleft())
+            except IndexError:
+                return lines
 
     def close(self) -> None:
         self._open = False
@@ -133,12 +139,14 @@ class SerialLink(Link):
             self._ser = serial.Serial(port=port, baudrate=int(baud), timeout=0, write_timeout=0.2)
         except Exception as exc:
             raise HardwareUnavailable(
-                f"could not open serial port '{port}': {exc}. Check the cable, close the "
-                f"Arduino IDE serial monitor, and confirm the port in Device Manager."
+                f"could not open serial port '{port}': {exc}. Check the USB cable, close the "
+                f"Arduino IDE Serial Monitor (only one program can use the port) and check the "
+                f"port name (Arduino IDE > Tools > Port)."
             ) from exc
         self._buf = bytearray()
         self._open = True
-        # an ESP32 reboots when the port opens; give the bootloader a moment if asked
+        # an Arduino Uno (and an ESP32) reboots when the port opens: give its bootloader
+        # a moment before the first frame, or that frame is lost
         if settle_s > 0:
             time.sleep(float(settle_s))
 
@@ -193,28 +201,41 @@ class SerialLink(Link):
 # Port discovery and the factory
 # --------------------------------------------------------------------------- #
 #: substrings identifying the USB-UART bridges these dev boards actually ship with
-_USB_UART_HINTS = ("CH340", "CH910", "CP210", "FTDI", "FT232", "USB-SERIAL",
-                   "SILICON LABS", "USB SERIAL", "WCH", "ESP32")
+_USB_UART_HINTS = ("ARDUINO", "CH340", "CH341", "CH910", "CP210", "FTDI", "FT232",
+                   "USB-SERIAL", "SILICON LABS", "USB SERIAL", "WCH", "ESP32")
+#: USB vendor ids: genuine Arduino boards, then the USB-serial chips of the clones
+_USB_VIDS = (0x2341, 0x2A03, 0x1A86, 0x0403, 0x10C4)
+
+
+def list_ports() -> List[Tuple[str, str, bool]]:
+    """``(device, description, looks_like_a_board)`` for every serial port, best first.
+
+    Empty when pyserial is missing. Bluetooth virtual ports are never a board: on Windows
+    and macOS they appear as ordinary serial ports and are the most common wrong answer.
+    """
+    try:
+        from serial.tools import list_ports as _lp
+    except Exception:
+        return []
+    rows = []
+    for info in _lp.comports():
+        blob = f"{info.description} {info.manufacturer or ''} {info.hwid or ''}".upper()
+        board = "BLUETOOTH" not in blob and (
+            getattr(info, "vid", None) in _USB_VIDS or any(h in blob for h in _USB_UART_HINTS))
+        rank = _USB_VIDS.index(info.vid) if getattr(info, "vid", None) in _USB_VIDS else len(_USB_VIDS)
+        # macOS lists each port twice; /dev/cu.* is the one to open
+        rank += 0.5 if str(info.device).startswith("/dev/tty.") else 0
+        rows.append((0 if board else 1, rank, info.device, info.description or "", board))
+    rows.sort(key=lambda r: (r[0], r[1], str(r[2])))
+    return [(device, desc, board) for _b, _r, device, desc, board in rows]
 
 
 def autodetect_port() -> Optional[str]:
-    """Best guess at the node's serial port, or ``None`` if nothing plausible is present.
-
-    Bluetooth virtual ports are excluded explicitly: on Windows they appear as ordinary
-    COM ports and are the single most common wrong answer.
-    """
-    try:
-        from serial.tools import list_ports
-    except Exception:
-        return None
-    candidates = []
-    for info in list_ports.comports():
-        blob = f"{info.description} {info.manufacturer or ''} {info.hwid or ''}".upper()
-        if "BLUETOOTH" in blob:
-            continue
-        if any(hint in blob for hint in _USB_UART_HINTS):
-            candidates.append(info.device)
-    return candidates[0] if candidates else None
+    """Best guess at the node's serial port, or ``None`` if nothing plausible is present."""
+    for device, _desc, board in list_ports():
+        if board:
+            return device
+    return None
 
 
 def open_link(port: str, baud: int = 115200, settle_s: float = 0.0) -> Link:
