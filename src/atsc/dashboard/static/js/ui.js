@@ -81,6 +81,7 @@ export class UI {
     this.legendAt = 0;
     this.lastEmergency = "";
     this.bannerShown = "";
+    this.emNames = [];              // who the banner is about, kept while it is out of sight
     this.wakeSince = 0;
     this.notLiveSince = performance.now();
     this.state = "connecting";
@@ -299,7 +300,9 @@ export class UI {
 
   /** Per animation frame (throttled): legend counts from the RL grid, and the emergency
    *  banner, which follows the vehicle on both grids - it usually clears the RL grid first
-   *  and is still stuck in fixed-time traffic, which is the point of the comparison. */
+   *  and is still stuck in fixed-time traffic, which is the point of the comparison. The
+   *  server's count (`ne`) keeps the banner up while the vehicle waits in the part of a long
+   *  queue that is not drawn (the "+n" badge). */
   frame(stats, ftStats, model, now) {
     if (now - this.legendAt < 400) return;
     this.legendAt = now;
@@ -315,9 +318,13 @@ export class UI {
     const ftKinds = (ftStats && ftStats.emergency) || [];
     const rlWhere = ids("rl");
     const ftWhere = ids("ft");
-    const onRL = rlKinds.length > 0 || rlWhere.length > 0;
-    const onFT = ftKinds.length > 0 || ftWhere.length > 0;
-    const names = [...new Set((onRL ? rlKinds : ftKinds).map(label))];
+    const inGrid = (side) => (model.sides[side] && model.sides[side].ne) || 0;
+    const onRL = rlKinds.length > 0 || rlWhere.length > 0 || inGrid("rl") > 0;
+    const onFT = ftKinds.length > 0 || ftWhere.length > 0 || inGrid("ft") > 0;
+    const drawn = onRL ? rlKinds : ftKinds;
+    if (drawn.length) this.emNames = [...new Set(drawn.map(label))];
+    else if (!onRL && !onFT) this.emNames = [];
+    const names = this.emNames;
     const who = names.length ? names.join(" + ") : "Emergency vehicle";
     let text = "";
     if (onRL) {

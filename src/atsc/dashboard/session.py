@@ -45,7 +45,9 @@ A side (``rl`` / ``ft``) carries, when they changed:
         clearance s (-1 none), emergencies cleared, paired clearance s (-1 none), pairs]``.
         The last two compare like with like: the mean clearance time of only those
         emergency vehicles that have already cleared *both* grids, and how many there are
-        (the same on both sides).  ``pr`` pre-empted junctions
+        (the same on both sides).  ``pr`` pre-empted junctions.  ``ne`` emergency vehicles
+        in the grid (queued or on a link), counted on the server, so the browser can follow
+        one that is waiting in the part of a long queue it is not sent (the ``+n`` badge)
 
 Global fields: ``k`` tick, ``bt`` simulator time, ``e`` episode time, ``p`` playing,
 ``sp`` speed, ``sc`` scenario, ``h`` new chart points ``[e, rl wait, ft wait, rl q, ft q]``,
@@ -677,7 +679,8 @@ class DashboardSession:
         runner = self.rl if name == "rl" else self.ft
         q, qk = runner.queues(self.queue_cap)
         return {"s": runner.lamps(), "q": q, "qk": [[i, s] for i, s in enumerate(qk)],
-                "mv": runner.moving(), "m": self._metrics(name), "pr": runner.preempted()}
+                "mv": runner.moving(), "m": self._metrics(name), "pr": runner.preempted(),
+                "ne": runner.active_emergencies()}
 
     def _side_events(self, runner: ControllerRunner, side: Dict[str, Any]) -> None:
         """Add the events recorded since the last frame (``a``, ``x``, ``tl``) to ``side``."""
@@ -710,6 +713,7 @@ class DashboardSession:
         base = self._base.get(name)
         q, qk = runner.queues(self.queue_cap)
         s, m, pr = runner.lamps(), self._metrics(name), runner.preempted()
+        ne = runner.active_emergencies()
         rec = runner.recorder
         side: Dict[str, Any] = {}
         if base is None or s != base["s"]:
@@ -724,7 +728,9 @@ class DashboardSession:
             side["m"] = m
         if base is None or pr != base["pr"]:
             side["pr"] = pr
-        self._base[name] = {"s": s, "q": q, "qk": qk, "m": m, "pr": pr}
+        if base is None or ne != base["ne"]:
+            side["ne"] = ne
+        self._base[name] = {"s": s, "q": q, "qk": qk, "m": m, "pr": pr, "ne": ne}
         rec.clear()
         return side
 
@@ -732,7 +738,8 @@ class DashboardSession:
         for name, runner in (("rl", self.rl), ("ft", self.ft)):
             q, qk = runner.queues(self.queue_cap)
             self._base[name] = {"s": runner.lamps(), "q": q, "qk": qk,
-                                "m": self._metrics(name), "pr": runner.preempted()}
+                                "m": self._metrics(name), "pr": runner.preempted(),
+                                "ne": runner.active_emergencies()}
             runner.recorder.clear()
         self._base_global = self._global()
         self._new_hist = []

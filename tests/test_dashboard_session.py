@@ -325,6 +325,35 @@ def test_clearance_kpi_compares_the_same_vehicles(tmp_path):
     assert saw_partial or pairs == 3
 
 
+def test_frames_count_emergency_vehicles_the_browser_is_not_sent(tmp_path):
+    """``ne`` follows an emergency vehicle the browser cannot draw: one waiting behind the
+    ``queue_render_cap`` vehicles that are sent of a long queue (the "+n" badge). The
+    emergency banner relies on it, so it stays up until the vehicle has left that grid."""
+    s = DashboardSession(_config(tmp_path, queue_render_cap=1, keyframe_every_s=3600))
+    s.set_scenario("rush")
+    s.play()
+    for _ in range(12):                          # let the queues build up
+        s.tick()
+    model = Model()
+    model.apply(_json(s.hello()))
+    s.submit({"a": "inject", "kind": "ambulance"})
+    hidden = seen = False
+    for _ in range(300):
+        frame = s.tick()
+        if frame is not None:
+            model.apply(_json(frame))
+        for name, runner in (("rl", s.rl), ("ft", s.ft)):
+            n = runner.active_emergencies()
+            assert model.sides[name].ne == n, name
+            seen = seen or n > 0
+            for q in runner.env.backend._queues.values():
+                hidden = hidden or any(v.is_emergency for v in list(q)[1:])
+        if seen and not s.rl.active_emergencies() and not s.ft.active_emergencies():
+            break
+    assert seen and hidden, "the ambulance was never out of sight behind the drawn vehicles"
+    assert model.sides["rl"].ne == model.sides["ft"].ne == 0
+
+
 def test_emergencies_can_be_disabled(tmp_path):
     raw = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
     raw["emergency"]["enabled"] = False

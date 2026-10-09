@@ -34,6 +34,7 @@ class Side:
         self.x: Dict[Tuple[int, int], Tuple[int, int, int, int]] = {}
         self.m: List[float] = []
         self.pr: List[int] = []
+        self.ne = 0                        # emergency vehicles in this grid (drawn or not)
         self.dep: List[int] = [0] * n      # departures seen per source approach
 
     # -- applying frames ---------------------------------------------------- #
@@ -77,6 +78,7 @@ class Side:
         self._adds(d.get("mv", []), bt10, count=False)   # ... then merge the snapshot
         self.m = list(d["m"])
         self.pr = list(d["pr"])
+        self.ne = int(d.get("ne", 0))
 
     def delta(self, d: Dict[str, Any], bt10: int) -> None:
         if "s" in d:
@@ -88,6 +90,8 @@ class Side:
             self.m = list(d["m"])
         if "pr" in d:
             self.pr = list(d["pr"])
+        if "ne" in d:
+            self.ne = int(d["ne"])
 
     def prune(self, bt: float) -> None:
         model = self.model
@@ -248,7 +252,7 @@ class Model:
         out: Dict[str, Any] = {key: self.g.get(key) for key in ("bt", "e", "p", "sp", "sc")}
         for name, side in self.sides.items():
             out[name] = {"s": side.s, "q": side.q, "qk": side.qk, "m": side.m, "pr": side.pr,
-                         "mv": side.on_link(bt)}
+                         "ne": side.ne, "mv": side.on_link(bt)}
         out["h"] = self.h
         return out
 

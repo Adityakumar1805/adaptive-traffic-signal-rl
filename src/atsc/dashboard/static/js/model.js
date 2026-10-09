@@ -24,6 +24,7 @@ export class Side {
     this.x = new Map();           // key -> [kind, src, dir, t_10, id]
     this.m = [];
     this.pr = [];
+    this.ne = 0;                  // emergency vehicles in this grid (drawn or not)
     this.dep = new Array(n).fill(0);
     this.tl = [];                 // lamp windows {t0, str}, newest last (at most 3)
   }
@@ -70,6 +71,7 @@ export class Side {
     this._adds(d.mv || [], bt10, false);          // ... then merge the snapshot
     this.m = d.m.slice();
     this.pr = d.pr.slice();
+    this.ne = d.ne || 0;
     this.tl = d.tl ? [{ t0: d.tl[0], str: d.tl[1] }] : [];
   }
 
@@ -80,6 +82,7 @@ export class Side {
     if (d.x) this._exits(d.x, bt10);
     if (d.m) this.m = d.m.slice();
     if (d.pr) this.pr = d.pr.slice();
+    if (d.ne !== undefined) this.ne = d.ne;
     if (d.tl) {
       this.tl.push({ t0: d.tl[0], str: d.tl[1] });
       if (this.tl.length > 3) this.tl.shift();

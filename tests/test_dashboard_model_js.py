@@ -39,7 +39,8 @@ for (const step of stream) {
         queues: d.queues.map((q) => ({ codes: q.codes, total: q.total, abs0: q.abs0, front_ids: q.front_ids })),
         movers: d.movers, crossing: d.crossing, exiting: d.exiting,
         s: model.sides[name].s, q: model.sides[name].q, qk: model.sides[name].qk,
-        m: model.sides[name].m, pr: model.sides[name].pr, dep: model.sides[name].dep,
+        m: model.sides[name].m, pr: model.sides[name].pr, ne: model.sides[name].ne,
+        dep: model.sides[name].dep,
       };
     }
     // copy now: the model keeps mutating these arrays as later frames arrive
@@ -93,7 +94,7 @@ def _python(stream):
                                for q in d["queues"]],
                     "movers": d["movers"], "crossing": d["crossing"], "exiting": d["exiting"],
                     "s": side.s, "q": side.q, "qk": side.qk, "m": side.m, "pr": side.pr,
-                    "dep": side.dep,
+                    "ne": side.ne, "dep": side.dep,
                 }
             # copy now: the model keeps mutating these lists as later frames arrive
             out.append(json.loads(json.dumps({"vt": vt, "bt": model.bt, "g": model.g,
@@ -120,3 +121,4 @@ def test_model_js_matches_the_python_reference(tmp_path):
     assert any(x["sides"]["rl"]["crossing"] for x in py)
     assert any(x["sides"]["rl"]["exiting"] for x in py)
     assert any(any(q["front_ids"] for q in x["sides"]["rl"]["queues"]) for x in py)
+    assert any(x["sides"]["ft"]["ne"] for x in py)      # an emergency vehicle was tracked
