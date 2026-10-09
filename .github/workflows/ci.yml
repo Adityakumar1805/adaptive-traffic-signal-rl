@@ -1,0 +1,121 @@
+# Continuous integration: every push and pull request.
+#
+#   tests         the full pytest suite with every optional tool installed (Node for the
+#                 browser-model parity test, g++ for the firmware logic, the AVR toolchain and
+#                 simavr for the firmware running on a simulated Uno), so nothing is skipped;
+#                 then the 36-run benchmark is rerun from the shipped checkpoint - once with
+#                 PyTorch and once with the NumPy network the hosted site uses - and must
+#                 reproduce outputs/benchmark_*.csv and the summary byte for byte.
+#   hosted-stack  installs requirements-deploy.txt (no torch) on render.yaml's Python, starts
+#                 render.yaml's exact start command and checks /healthz and the WebSocket.
+#
+# Nothing here deploys: Render redeploys by itself on every push to main (render.yaml).
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests and benchmark reproduction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the AVR toolchain and simavr (firmware tests)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-avr avr-libc arduino-core-avr simavr libsimavr-dev libelf-dev
+
+      - name: Install Python dependencies (CPU-only PyTorch, as run.sh does)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Run the test suite (every test must run, none skipped)
+        shell: bash
+        run: |
+          python -m pytest -ra | tee pytest.log
+          if grep -qE "[0-9]+ skipped" pytest.log; then
+            echo "::error::some tests were skipped - a test tool is missing on the runner"
+            exit 1
+          fi
+
+      - name: Reproduce the published benchmark (PyTorch network)
+        run: |
+          python run.py eval
+          git diff --exit-code -- outputs/benchmark_results.csv outputs/benchmark_summary.csv outputs/benchmark_summary.md
+
+      - name: Reproduce it again with the NumPy network the hosted site runs
+        run: |
+          sed 's/^  nn_backend: auto /  nn_backend: numpy/' config.yaml > "$RUNNER_TEMP/config_numpy.yaml"
+          grep -q "^  nn_backend: numpy" "$RUNNER_TEMP/config_numpy.yaml"
+          python run.py --config "$RUNNER_TEMP/config_numpy.yaml" eval
+          git diff --exit-code -- outputs/benchmark_results.csv outputs/benchmark_summary.csv outputs/benchmark_summary.md
+
+  hosted-stack:
+    name: Hosted stack (requirements-deploy.txt, no torch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.6"     # render.yaml's PYTHON_VERSION
+          cache: pip
+          cache-dependency-path: requirements-deploy.txt
+
+      - name: Install exactly what Render installs
+        run: |
+          pip install -r requirements-deploy.txt
+          python -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('torch') is not None)"
+
+      - name: Start render.yaml's start command and check /healthz and the WebSocket
+        run: |
+          uvicorn asgi:app --host 127.0.0.1 --port 8000 --ws-max-size 65536 --ws-ping-interval 20 --ws-ping-timeout 20 > server.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8000/healthz -o health.json && break
+            sleep 1
+          done
+          python - <<'EOF'
+          import json
+          from websockets.sync.client import connect
+
+          h = json.load(open("health.json"))
+          assert h["ok"] and h["tick_errors"] == 0, h
+          assert h["nn_backend"] == "numpy" and h["checkpoint"] == "atsc_2x2.pt", h
+          with connect("ws://127.0.0.1:8000/ws", open_timeout=20) as ws:
+              hello = json.loads(ws.recv(timeout=20))
+              frame = json.loads(ws.recv(timeout=20))
+          assert hello["t"] == "hello" and frame["t"] in ("f", "hb"), (hello["t"], frame["t"])
+          print(f"hosted stack OK: version {h['version']}, {h['nn_backend']} network, "
+                f"{h['checkpoint']}, {h['rss_mb']} MB resident, WebSocket streaming")
+          EOF
+
+      - name: Server log
+        if: always()
+        run: cat server.log || true
