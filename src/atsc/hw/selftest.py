@@ -90,7 +90,7 @@ def run_selftest(port: str = "auto", baud: int = 115200, listen_s: float = 60.0,
                     _show(bridge, aspects, secs)
                 _show(bridge, _all_red(), 0.4)
         out("  If a head showed the wrong colour or lit at the wrong junction, compare its")
-        out("  wires with the LED table in docs/HARDWARE.md (step 4).")
+        out("  wires with the LED table in docs/HARDWARE.md (section 5).")
 
     # 3. sensors and remote
     seen: Dict[str, bool] = {}

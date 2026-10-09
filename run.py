@@ -6,7 +6,7 @@ Usage
     python run.py demo            # train-if-needed, then open the live dashboard
     python run.py demo --hardware # ...driving the Arduino signal model (docs/HARDWARE.md)
     python run.py hwtest          # check a newly built signal board, part by part
-    python run.py train --quick   # fast training (a few minutes) -> atsc_<grid>_quick.pt
+    python run.py train --quick   # fast training (under a minute) -> atsc_<grid>_quick.pt
     python run.py train --overwrite   # full training; REPLACES the shipped checkpoint
     python run.py eval            # benchmark RL vs fixed-time vs max-pressure + plots
     python run.py sim             # watch the RL controller in SUMO-GUI (needs SUMO)
@@ -94,7 +94,7 @@ def cmd_train(args) -> int:
               "exists: it is the shipped model that every published result and the live demo "
               "come from, and outputs/logs/train.csv is its training log.\n"
               "Training again produces a different model (training is not bit-reproducible).\n"
-              "  python run.py train --quick       a few-minute model in a separate *_quick.pt file\n"
+              "  python run.py train --quick       a quick 8-episode model in a separate *_quick.pt file\n"
               "  python run.py train --overwrite   replace the shipped model and its log on purpose")
         return 1
     from atsc.train.trainer import train_main
@@ -181,7 +181,7 @@ def cmd_demo(args) -> int:
     ck = default_checkpoint_path(cfg)
     quick = ck.with_name(ck.stem + "_quick.pt")
     if not ck.exists() and not quick.exists():
-        log.info("No pretrained model found - training a quick one (a few minutes)...")
+        log.info("No pretrained model found - training a quick one (under a minute)...")
         from atsc.train.trainer import train_main
         train_main(cfg, quick=True)
     hardware = None
@@ -229,7 +229,7 @@ def main() -> int:
                       help="how long to listen for sensors and buttons (default 60)")
     p_hw.add_argument("--no-walk", action="store_true", help="skip the lamp walk")
     p_train = sub.add_parser("train", help="train the RL controller")
-    p_train.add_argument("--quick", action="store_true", help="fast, few-minute training")
+    p_train.add_argument("--quick", action="store_true", help="fast training: 8 episodes, under a minute")
     p_train.add_argument("--overwrite", action="store_true",
                          help="allow a full training run to replace the shipped checkpoint")
     p_eval = sub.add_parser("eval", help="benchmark RL vs baselines and make plots")

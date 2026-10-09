@@ -16,8 +16,8 @@
 >    (`config.yaml → scenarios.rush: {arrival_scale: 1.00, time_varying: false}`). This is
 >    deliberate and tied to the one honest limitation (§11).
 >
-> Everything else in the brief checks out: **40 Python modules** (`find src -name '*.py'`),
-> **144 tests** (13 files in `tests/`; the original 26 in 6 files), **observation dimension = 23** (`src/atsc/envs/spaces.py`),
+> Everything else in the brief checks out: **49 Python modules** (`find src -name '*.py'`),
+> **196 tests** (15 files in `tests/`; the original 26 in 6 files), **observation dimension = 23** (`src/atsc/envs/spaces.py`),
 > results **Low −15% / Medium −27% / High −49% / Rush −61%, mean ≈38%**
 > (`outputs/benchmark_summary.md`), and the safety machine verified over **18,000 random
 > requests** (`tests/test_phases_safety.py`, 6000 steps × 3 seeds).
@@ -158,7 +158,8 @@ Every dependency below is really pinned in `requirements.txt`.
 | **Pandas** | 2.1.4 | Dataframes | Aggregates benchmark results, writes CSV/markdown tables (`eval/benchmark.py`) | Best tool for tabular metric aggregation |
 | **Matplotlib** | 3.8.4 | Plotting | Comparison bar charts, training curve (`eval/plots.py`) | Standard, headless-capable (`Agg` backend) |
 | **PyYAML** | 6.0.1 | YAML parser | Loads `config.yaml` (`config.py`) | Human-readable config; one source of truth |
-| **pytest** | 8.2.0 | Test framework | Runs the 144 tests (`tests/`) | De-facto Python testing standard |
+| **pytest** | 8.2.0 | Test framework | Runs the 196 tests (`tests/`), locally and in GitHub Actions on every push | De-facto Python testing standard |
+| **pyserial** | 3.5 | Serial-port access | Talks to the Arduino signal model in hardware mode (`hw/link.py`); imported only then | The standard cross-platform serial library |
 | **SUMO + TraCI / libsumo** | (installed separately, optional) | Microscopic traffic simulator + its Python control API | Primary simulator backend (`sim/sumo_backend.py`, `sim/netgen.py`) | SUMO is the academic-standard traffic simulator; TraCI is its real-time control protocol |
 
 Note: **WebSocket** is not a library we install — it is a browser/HTTP protocol; FastAPI
@@ -530,9 +531,10 @@ SUMO is the higher-fidelity path.
 - `README.md` — quickstart, architecture, results, "how to explain in the viva" table.
 - `REPORT.md` — full methodology, RL math, results, limitations, references.
 - `EXPLAINER.md` / `CHEATSHEET.md` — this study pack.
-- `LICENSE` (MIT), `.gitignore`, `pytest.ini`, `traffic_mgmt_RL_major_project.pptx` (your deck).
+- `LICENSE` (MIT), `.gitignore`, `pytest.ini`. The slide deck (`*.pptx`) is kept out of git by
+  `.gitignore` — it is a submission artefact, handed in separately.
 
-**`src/atsc/` — the Python package (40 modules)**
+**`src/atsc/` — the Python package (49 modules)**
 - `config.py` — loads/validates `config.yaml` into an attribute-accessible object.
 - `logging_utils.py` — logging + friendly boxed error messages.
 - `seeding.py` — deterministic seeds; `derive_seed()` gives identical traffic per (seed,scenario).
@@ -560,12 +562,17 @@ SUMO is the higher-fidelity path.
 - `eval/` — `benchmark.py`, `metrics.py`, `plots.py`.
 - `dashboard/` — `server.py` (FastAPI+WS), `stdlib_server.py` (fallback), `session.py` (RL-vs-fixed race + the compact wire protocol), `assets.py`/`runtime.py` (static files, build id, stats), `static/` (`index.html`, `styles.css`, `sw.js`, `js/{main, transport, model, renderer, sprites, charts, ui}.js`).
 - `vehicles.py` — the 18 vehicle types (Indian mix, drawn sizes), the configurable `traffic_mix`, and the emergency types (ambulance, police car, fire engine).
+- `hw/` — the Arduino signal model (optional, imported only by `run.py demo --hardware` and `run.py hwtest`): `protocol.py` (the CRC-checked serial lines), `link.py` (finding and opening the port), `bridge.py` (lamps out, sensors and remote buttons in), `mirror.py` (plays the simulation's lamp states out in real time), `selftest.py` (`run.py hwtest`).
+- `threads.py` — pins the maths libraries to one thread on the hosted server (see `docs/DEPLOYMENT.md`).
 
 **Other folders**
-- `tests/` — the original 6 files / 26 tests (`test_env.py`, `test_phases_safety.py`, `test_reward.py`, `test_replay.py`, `test_controllers.py`, `test_benchmark_math.py`) plus `test_dashboard_session.py`, `test_dashboard_ws.py`, `test_dashboard_model_js.py`, `test_stdlib_server.py`, `test_static_assets.py`, `test_vehicles.py`, `test_agents_compat.py` (144 in total), `conftest.py` and `dashboard_model.py` (a Python mirror of the browser's frame handling).
+- `tests/` — the original 6 files / 26 tests (`test_env.py`, `test_phases_safety.py`, `test_reward.py`, `test_replay.py`, `test_controllers.py`, `test_benchmark_math.py`) plus `test_dashboard_session.py`, `test_dashboard_ws.py`, `test_dashboard_model_js.py`, `test_stdlib_server.py`, `test_static_assets.py`, `test_vehicles.py`, `test_agents_compat.py`, `test_threads.py`, `test_hardware.py` (196 in total, 15 files), `conftest.py`, `dashboard_model.py` (a Python mirror of the browser's frame handling) and `firmware/core_harness.cpp` (the firmware's logic compiled for the PC).
 - `models/pretrained/` — shipped checkpoint `atsc_2x2.pt` (+ `_final.pt`); portable NumPy-array pickle.
 - `outputs/` — generated CSVs + PNG plots + training logs.
-- `docs/screenshots/` — plots copied for the README.
+- `docs/screenshots/` — the dashboard stills and the animation in the README (the plots are shown straight from `outputs/`).
+- `firmware/atsc_signal_node/` — the Arduino sketch and `atsc_core.h`, the logic the tests compile on the PC.
+- `tools/` — `e2e_browser.py` (headless-browser check), `bench_server.py` (server load), `record_gif.py` (the README animation), `hardware_diagrams.py` (the wiring figures), `virtual_board/` (the firmware on a simulated Uno).
+- `.github/workflows/ci.yml` — GitHub Actions: the full test suite, the benchmark reproduced byte for byte, and the hosted stack booted, on every push.
 - `scenarios/generated/` — auto-generated SUMO net/route files (created on demand; git-ignored).
 
 ---
@@ -712,7 +719,8 @@ SUMO is the higher-fidelity path.
 
 19. **How large is the network / how long does training take?**
     An MLP with hidden layers `[128,128]` (`config.yaml`), tiny by ML standards. Full training
-    is 112 episodes (`train.episodes`), a few minutes on CPU; `--quick` is 8 episodes.
+    is 112 episodes (`train.episodes`), about two minutes on a CPU (the logged run spent 33.4 s
+    inside its episodes); `--quick` is 8 episodes, under a minute.
 
 20. **How is the emergency vehicle detected and handled, safely?**
     The backend exposes `emergency_present(intersection, approach)`; `EmergencyController.apply`

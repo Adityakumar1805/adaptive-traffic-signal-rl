@@ -19,21 +19,23 @@ Read the others for the material they already cover well:
 >
 > **Version note (1.2.0).** Release 1.2.0 adds the Arduino signal model — firmware in
 > `firmware/`, the PC side in `src/atsc/hw/`, the build guide in
-> [docs/HARDWARE.md](HARDWARE.md) — and 43 hardware tests (195 in total). Section 16 below
-> covers the questions it invites. Model, checkpoint, FSM and benchmark numbers: unchanged.
+> [docs/HARDWARE.md](HARDWARE.md) — with 43 hardware tests, and GitHub Actions CI that reruns
+> the tests and the benchmark on every push (196 tests in total). Section 16 below covers the
+> questions it invites. Model, checkpoint, FSM and benchmark numbers: unchanged.
 
 **Verification standard used here.** Every number below was produced by running this
 repository's own code on this repository's own artefacts. Three checks back it up:
 
 | Check | Result |
 |---|---|
-| Unit tests | **26 passed, 0 failed** |
+| Tests | **196 passed, 0 failed** (26 in release 1.0.0) |
 | `python run.py doctor` | **OK** — config valid, checkpoint loads |
-| Reproduce `outputs/benchmark_results.csv` from source + shipped checkpoint | **36 / 36 rows bit-exact** |
+| Reproduce `outputs/benchmark_results.csv` from source + shipped checkpoint | **36 / 36 rows bit-exact**, with PyTorch and with the NumPy network |
 
 That third check is the strongest claim in this document and the one to make in the viva: the
 results table is not a screenshot of a run someone remembers — it regenerates, to the last
-decimal, in about four seconds from `models/pretrained/atsc_2x2.pt`.
+decimal, in under ten seconds from `models/pretrained/atsc_2x2.pt`, and CI checks that it
+still does on every push.
 
 Anything that could **not** be verified is labelled *"cannot be verified from this project"*
 in place. Nothing here is estimated, rounded up, or borrowed from a paper.
@@ -44,8 +46,9 @@ in place. Nothing here is estimated, rounded up, or borrowed from a paper.
 
 **Is:** a working multi-agent deep-RL traffic-signal controller for a 2×2 grid, with a
 safety layer, emergency preemption, two baselines, a four-density benchmark, a live
-browser dashboard, and 26 unit tests. 47 Python files, 5,463 lines of Python, 959 lines of
-front-end, zero front-end dependencies.
+browser dashboard, an Arduino signal model, and 196 tests. In release 1.2.0: 75 Python files
+(12,664 lines), 3,159 lines of front-end (HTML, CSS, JavaScript), 899 lines of Arduino
+firmware, zero front-end dependencies. (The inventory in §2 describes release 1.0.0.)
 
 **Is not:** a new RL algorithm. The learner is Double + Dueling DQN with Prioritized
 Experience Replay — all published techniques (2015–2016). Claiming novelty in the algorithm
@@ -59,7 +62,7 @@ from a Poisson arrival process in a simulator. Say so before you are asked.
 
 ---
 
-## 2. Verified file inventory
+## 2. Verified file inventory (release 1.0.0)
 
 Built by parsing every file's AST and resolving the import graph, not by reading names.
 `Imported by` is the actual set of modules that import each file.
@@ -153,7 +156,7 @@ shipped checkpoint is `create_qnet` in `agents/net.py`, which on this machine re
 | `static/index.html` | 129 | CORE | the single page | — |
 | `static/styles.css` | 164 | CORE | styling | — |
 
-### 2.7 Tests (26 cases, all passing)
+### 2.7 Tests in release 1.0.0 (26 cases, all passing)
 
 | File | Cases | What it actually asserts |
 |---|---:|---|
@@ -170,20 +173,23 @@ target computation itself, `MultiAgentDQN.save/load` round-tripping, `RLControll
 dashboard/session, `netgen`, `sumo_backend`, `qmix.py`, `agents/dqn.py`, or the claim *"RL beats
 fixed-time"*. The last one is covered by the benchmark instead of by a test — which is
 defensible (it is a 36-run experiment, not a unit assertion), but say it that way.
+*(Since 1.1.0 the dashboard session and protocol, both servers, checkpoint loading across
+network backends and the hardware path are tested too — 196 cases in all, see Q128 — and CI
+reruns the benchmark on every push.)*
 
 ### 2.8 Non-code files
 
 | File | Size | Status | Note |
 |---|---:|---|---|
 | `config.yaml` | 7.4 KB | CORE | single source of truth; every module reads it |
-| `models/pretrained/atsc_2x2.pt` | 321 KB | CORE | **the checkpoint behind every RL number.** Verified: 19,971 float64 parameters, tagged `ep70_wait27.0` |
-| `models/pretrained/atsc_2x2_final.pt` | 321 KB | CORE (spare) | the end-of-training weights; `run.py` loads `atsc_2x2.pt` |
+| `models/pretrained/atsc_2x2.pt` | 313 KB | CORE | **the checkpoint behind every RL number.** Verified: 19,971 float64 parameters, tagged `ep70_wait27.0` |
+| `models/pretrained/atsc_2x2_final.pt` | 313 KB | CORE (spare) | the end-of-training weights; `run.py` loads `atsc_2x2.pt` |
 | `outputs/benchmark_results.csv` | 5.8 KB | GEN | 36 raw runs — reproduces bit-exactly |
 | `outputs/benchmark_summary.{csv,md}` | 3.0 KB | GEN | the aggregated tables the docs quote |
 | `outputs/logs/train.csv` | 6.1 KB | GEN | **112 episodes**, ε 0.99 → 0.05 |
-| `outputs/logs/train_quick.csv` | 509 B | GEN | an 8-episode smoke run |
+| `outputs/logs/train_quick.csv` | 509 B | GEN, not committed | an 8-episode smoke run (`.gitignore` keeps `--quick` output out of git) |
 | `outputs/*.png` (4) | 192 KB | GEN | the report figures |
-| `docs/screenshots/*.png` (5) | 296 KB | DOC | committed copies so the README renders on GitHub |
+| `docs/screenshots/*.png` (5) | 296 KB | DOC | committed copies so the README renders on GitHub (1.2.0: the plot copies are gone — the README shows `outputs/*.png` directly) |
 | `requirements.txt` / `environment.yml` | 2.8 KB | CORE | every version pinned with `==` |
 | `run.bat` / `run.sh` | 4.0 KB | CORE | one-click launchers (venv + install + demo) |
 | `asgi.py` | 2.4 KB | CORE | the hosted entrypoint: exposes a module-level `app` because `build_app()` is a factory |
@@ -535,7 +541,7 @@ Ordered by how likely they are to be attacked. Each has the concession *and* the
 | # | Change | Payoff |
 |---|---|---|
 | L1.1 | Re-run `eval` with 5 seeds and put min/max error bars on `comparison_kpis.png` | kills the "only three seeds" objection outright |
-| L1.2 | ~~Delete `package-lock.json` and the in-repo zip~~ — **done**: both are in `.gitignore`, so the published set is 95 files with no npm artefact and no zip-inside-the-zip | a clean public repo; no "where's your JS build?" question |
+| L1.2 | ~~Delete `package-lock.json` and the in-repo zip~~ — **done**: both are in `.gitignore`, so the published set carries no npm artefact and no zip-inside-the-zip | a clean public repo; no "where's your JS build?" question |
 | L1.3 | Add a *measured* line to `rl_improvement.png` alongside the aspirational band, or label the band "proposal target" in the legend | removes the only figure that can be read as overclaiming |
 | L1.4 | Rename the `avg_speed` column to `moving_fraction_speed` in the CSV writer | the metric stops being able to mislead you under pressure |
 | L1.5 | Add the §6.2 answers to `EXPLAINER.md` §14 as three more Q&A entries | the throughput question becomes a prepared answer |
@@ -648,6 +654,8 @@ own right, not a deployment tweak.
 ---
 
 ## 11. Question bank — 144 project-specific questions
+
+*(§16 adds 11 on the hardware model: 155 in all.)*
 
 Each row gives what to **say** (10–20 seconds, out loud) and what to add **if pushed** (the
 technical depth plus the follow-up they will ask). ★ marks the ones most likely to be asked;
@@ -787,7 +795,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | 92 ★ | What are you comparing against? | Two baselines. Fixed-time: a standard 30 s + 30 s cycle, 60 s total, no sensing. Max-pressure: a published adaptive algorithm that each step serves the phase with the greatest queue pressure. | Comparing only against fixed-time would be a soft target — any adaptive method beats a clock. Max-pressure is the honest bar because it is provably throughput-optimal under its own assumptions. |
 | 93 ★★ | Max-pressure beats your RL at low and medium density. Explain. | It does: 19.22 s vs 22.31 s at low, 22.52 s vs 25.24 s at medium. Max-pressure is greedy and near-optimal when there is slack, and it pays no switching penalty. Our reward charges 0.20 per switch and the policy is trained across all four densities, so it is deliberately less twitchy. | The ordering reverses where it matters: 35.56 vs 35.17 at high, and 50.54 vs **43.89** at rush — a 13 % win over max-pressure when the network is saturated, which is the regime the project targets. Max-pressure also needs the full queue vector every step and has no notion of clearance cost or emergencies. I would rather report the reversal than hide the two cells I lose. |
 | 94 | Is max-pressure a strong implementation or a strawman? | It is the standard rule: for each phase compute upstream minus downstream queue, take the max, respect the same min/max green and clearance FSM the RL agent obeys. `control/max_pressure.py`. | It runs on the identical environment, identical seeds, identical safety constraints, and it gets the same emergency override. If anything it is favoured, because it reads exact queues with no sensing noise. |
-| 95 ★ | How do you know the comparison is fair? | Same seed, same environment object, same arrival sequence, same safety FSM, same preemption. Only the `act()` implementation differs. | Seeding is derived per stream via `derive_seed(base, *tags)`, so controller A and controller B on seed 0 face a bit-identical demand realisation. I reran all 36 rows this week and every `avg_waiting_time` reproduced to 1e-9. |
+| 95 ★ | How do you know the comparison is fair? | Same seed, same environment object, same arrival sequence, same safety FSM, same preemption. Only the `act()` implementation differs. | Seeding is derived per stream via `derive_seed(base, *tags)`, so controller A and controller B on seed 0 face a bit-identical demand realisation. Rerunning all 36 rows regenerates the CSV byte for byte, and CI checks that on every push. |
 | 96 | Why not compare against SCATS or SCOOT? | They are proprietary commercial systems; there is no reference implementation I could run inside this project, and reproducing one from the literature would be a project in itself. | I would not claim a comparison I did not run. Max-pressure is the recognised research baseline for this task and it is the one I implemented and measured. |
 | 97 | Is the fixed-time baseline realistic? | It is honest but not optimised — a symmetric 30/30 split on a corridor that carries 2.2× more east–west demand. | A traffic engineer would tune that split offline (Webster's method) and close part of the gap. I would concede that immediately, and point out that this is exactly the argument *for* adaptive control: the fixed plan is only right for the demand it was tuned to, and the rush column shows what happens when demand moves. |
 | 98 | Did you compare against another RL method? | No. **No RL-vs-RL ablation was run and cannot be evidenced from this project.** | The comparisons I can defend are RL vs fixed-time and RL vs max-pressure, over 4 densities × 3 seeds. Vanilla-DQN and no-PER ablations are the first two experiments I would run next, and they are listed as Level-1 improvements. |
@@ -797,7 +805,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | # | Question | Say this | If pushed |
 |---|---|---|---|
 | 99 ★ | Walk me through your training run. | 112 episodes, each 1200 simulated seconds = 240 control steps, so **26,880 control steps** total. Every episode picks a scenario from the curriculum, runs with ε-greedy exploration, stores transitions in prioritized replay, and takes one gradient step per control step. | The whole run is logged in `outputs/logs/train.csv` — 112 rows, columns `episode, scenario, steps, ep_reward, avg_wait, avg_queue, throughput, epsilon, loss, seconds`. Every row shows `steps = 240`, which is where the 26,880 comes from. |
-| 100 ★★ | How long did training take? | **33.4 seconds of wall time** for all 112 episodes — the sum of the `seconds` column. | That surprises people, so I lead with the reason: the built-in backend is a point-queue model, not a car-following microsimulation, and the network is a 19,971-parameter NumPy MLP. It is honest about what it buys me — fast iteration — and honest about what it costs: no lane changes, no acceleration profiles. On SUMO the same run would be orders of magnitude slower. |
+| 100 ★★ | How long did training take? | **33.4 seconds of wall time** for all 112 episodes — the sum of the `seconds` column. The whole command, with its periodic greedy evaluations, takes about two minutes on an ordinary CPU. | That surprises people, so I lead with the reason: the built-in backend is a point-queue model, not a car-following microsimulation, and the network is a 19,971-parameter NumPy MLP. It is honest about what it buys me — fast iteration — and honest about what it costs: no lane changes, no acceleration profiles. On SUMO the same run would be orders of magnitude slower. |
 | 101 ★ | What is the curriculum, exactly? | Four densities cycled round-robin: `scenario = curriculum[ep % 4]`, so low/medium/high/rush each get exactly 28 episodes, interleaved. | I would be precise here rather than let the word oversell: this is **density cycling, not progressive difficulty**. A true curriculum would train low first and ramp. Cycling was chosen so the single shared policy stays competent at every density instead of forgetting the easy regime — and the per-scenario curves show it worked at all four. |
 | 102 | Does the agent see the same traffic every episode? | No. The seed is `derive_seed(42, "train", scenario, ep)`, so all 112 episodes have distinct arrival realisations. | That is what stops it memorising one demand trace, and it is also why the training curve is jagged rather than smooth — each point is a different problem instance. Evaluation then uses a *different* seed namespace (0, 1, 2), so no evaluation episode was trained on. |
 | 103 ★ | How much did it actually improve during training? | Compare like scenario with like. Mean `avg_wait` over the first 7 versus last 7 episodes of each density: low 48.7 → 24.0 s, medium 61.9 → 27.6 s, high 113.5 → 38.7 s, rush 160.7 → 45.7 s. | Episode reward improves in step: high-density mean reward −4156 → −1485, rush −6780 → −1918. Throughput also climbs where it matters (high 1104 → 1431 completed trips, rush 1245 → 1456), so it is not buying wait reductions by refusing to admit vehicles. |
@@ -811,7 +819,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 
 | # | Question | Say this | If pushed |
 |---|---|---|---|
-| 109 ★ | Describe your evaluation protocol. | 3 controllers × 4 densities × 3 seeds = **36 episodes**, each 1800 simulated seconds, 30 s warm-up discarded, one emergency vehicle injected at t = 720 s. Every row is in `outputs/benchmark_results.csv`. | Identical seeds across controllers, so each controller faces a bit-identical arrival sequence. I reran all 36 rows from the shipped code and checkpoint this week and every `avg_waiting_time` matched the CSV to 1e-9. |
+| 109 ★ | Describe your evaluation protocol. | 3 controllers × 4 densities × 3 seeds = **36 episodes**, each 1800 simulated seconds, 30 s warm-up discarded, one emergency vehicle injected at t = 720 s. Every row is in `outputs/benchmark_results.csv`. | Identical seeds across controllers, so each controller faces a bit-identical arrival sequence. Rerunning all 36 rows from the shipped code and checkpoint regenerates the CSV byte for byte; CI checks that on every push. |
 | 110 ★ | Only 3 seeds? | Yes, and I will not oversell it. Three seeds gives a direction, not a confidence interval. | What defends the headline is effect size versus spread: at rush, RL's advantage is 69 s while the *entire* seed range is 2.69 s for RL and 30.02 s for fixed-time. At low density, where my margin is 4 s, three seeds is genuinely too few and I would say so. Ten seeds costs about a minute of compute — it is on the improvement list for exactly that reason. |
 | 111 ★ | How is average waiting time defined? | Total accumulated stopped time divided by the number of vehicles counted — and vehicles **still in the network at episode end are folded in** via `record_present_wait`. | That last part matters: if I only counted completed trips, a controller could look good by stranding its worst vehicles forever. Including them makes the metric un-gameable in that direction. It is per vehicle, not per intersection. |
 | 112 ★★ | Your deck claims +35–45 % throughput. Your data shows +0.1 % to +7.6 %. | The deck target was not met and I would correct it rather than defend it. Measured throughput change versus fixed-time is −0.1 % (low), +0.0 % (medium), +2.8 % (high), +7.6 % (rush). | The reason is structural: throughput is bounded by *demand*, and demand is exogenous — the same arrival process feeds every controller. In under-saturated conditions every controller eventually discharges nearly every vehicle, so throughput cannot separate them; it only moves once queues start spilling, which is why the gain appears at high and rush. Waiting time and queue length are the metrics with headroom, and there RL wins by 48.8 % and 61.2 %. |
@@ -829,7 +837,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | 119 ★ | What exactly does your built-in simulator model? | A point-queue, store-and-forward network. Poisson arrivals at each boundary approach, a queue per (junction, approach), discharge at saturation flow while green, then a fixed link travel time to the next junction. | Concretely: 0.5 veh/s per green lane implemented as a credit accumulator, so one vehicle every 2 s; a 200 m link at 13.9 m/s is 14.4 s of transit, which is what makes green-wave coordination worth learning; routes are precomputed straight corridors with a 10 % chance of one turn, so every trip terminates. |
 | 120 ★★ | What does it *not* model? | Four things I would list before being asked: **no spill-back** — queues are unbounded, so a jammed approach never blocks the junction upstream; no car-following or acceleration; no lane changing or protected turn lanes; and no true per-vehicle speed, only a moving fraction. | Spill-back is the most consequential omission, and it cuts against me in a specific way: gridlock is the failure mode adaptive control is most valuable for, and my simulator cannot produce it. So the rush-hour advantage is measured in a world that is *kinder* than reality to the fixed-time baseline in some respects and harsher in others. Honest position: the direction of the result is safe, the magnitude is simulator-specific. |
 | 121 | Why build a simulator instead of just using SUMO? | Two reasons, one principled and one practical. RL needs a very large number of samples, and the point-queue model runs 112 episodes in 33 seconds. And the project has to install and run on any machine with Python and NumPy — a demo that needs a SUMO install is a demo that fails on the day. | The architecture is what protects the claim: both backends implement the same interface and return the same metric schema, so no environment, agent or evaluation code knows which one it is talking to. The shortcut is contained in one file. |
-| 122 ★ | How do you guarantee reproducibility? | Every random stream is derived from one seed via `derive_seed(base, *tags)` — sha256 of the tag tuple, top 32 bits — so arrivals, routes and exploration are independent, named streams rather than one shared generator. | The proof is concrete: I reran all 36 benchmark rows from the shipped code and checkpoint and every `avg_waiting_time` matched the CSV to within 1e-9. There is also a unit test, `test_determinism_same_seed`. |
+| 122 ★ | How do you guarantee reproducibility? | Every random stream is derived from one seed via `derive_seed(base, *tags)` — sha256 of the tag tuple, top 32 bits — so arrivals, routes and exploration are independent, named streams rather than one shared generator. | The proof is concrete: Rerunning all 36 benchmark rows from the shipped code and checkpoint regenerates the CSV byte for byte — with PyTorch and with the NumPy network — and CI checks that on every push. There is also a unit test, `test_determinism_same_seed`. |
 | 123 ★ | Has that ever broken? | Yes, and it is worth telling. Adding vehicle *types* for the dashboard drew from the main RNG stream, which shifted every subsequent arrival and silently changed the KPIs. | The fix was to give cosmetic draws their own stream (`_kind_rng`), so a purely visual feature cannot move a reported number. That is now stated in the function's docstring. I would rather present this as a lesson about seeding discipline than pretend the first version was right. |
 | 124 | Which backend does the dashboard use, and why? | The built-in one, forced by `dashboard.backend: mini`. | A live demo needs a smooth 200 ms tick and instant reset; launching SUMO per session would make it fragile in front of an audience. The dashboard is a demonstration surface, not a measurement instrument — the measurements come from `run.py eval`. |
 
@@ -840,7 +848,7 @@ technical depth plus the follow-up they will ask). ★ marks the ones most likel
 | 125 ★ | How is the code organised? | 47 Python files, 5,463 lines, in seven packages: `sim` (backends), `envs` (environment + safety FSM + observation), `agents` (learner, nets, replay), `control` (three controllers + preemption), `train`, `eval`, `dashboard`. `config.yaml` is the single source of truth. | The design rule is that dependencies point inwards to `sim/backend.py`, which is the most imported module in the project (12 importers) and defines the abstract interface plus the metrics accumulator. That is what makes SUMO ↔ built-in interchangeable. |
 | 126 ★ | What does the dashboard actually do? | Runs two environments side by side — RL and a baseline — on the same seed, advanced by a background thread every 200 ms, and streams state to a browser. Seven live controls: play, pause, step, reset, speed, scenario, inject emergency. | The front end is 959 lines of hand-written HTML, CSS and JavaScript with **zero third-party libraries** — the junction rendering *and* the live line charts are drawn directly on Canvas. No CDN request anywhere, which is why it works with the network unplugged. That was a deliberate constraint, not an omission. |
 | 127 ★ | Is the dashboard secure? | Not in the sense a production service would be, and I can be precise about why that is acceptable here. `POST /api/cmd` is unauthenticated, so anyone who can reach the port can change the scenario or reset the run. | Locally it binds `127.0.0.1`, so the exposure is local. The public instance described in `docs/DEPLOYMENT.md` is deliberately open, because the attack surface is a simulation: no account, no upload, no database, no filesystem write, and nothing persisted between restarts. Before this became anything but a demo it would need auth on `/api/cmd`, a rate limit, an origin check and one session per visitor. I list it as a known weakness rather than waiting to be caught by it. |
-| 128 ★ | What do your tests cover? | **(1.2.0)** 195 tests in 15 files: 43 for the hardware model (protocol, firmware logic compiled for the PC, real-time playback, the simulated board end to end); **(1.1.0)** 144 tests in 13 files: the original 26 below, plus the dashboard protocol (a delta stream rebuilds every keyframe; the browser's between-frame picture equals the simulator second by second; the JavaScript model matches its Python mirror), the FastAPI and stdlib servers (WebSocket, path traversal, validation), the vehicle catalogue, and checkpoint/config compatibility. Original 26 tests in 6 files, all passing. Safety FSM (5), controllers including preemption (5), PER sum-tree and the NumPy net (5), environment API and determinism (4), reward shaping (3), benchmark aggregation maths (4). | Two are behavioural rather than unit tests, which I think is the more valuable kind here: `test_max_pressure_beats_fixed_on_high` pins the baseline ordering, and `test_numpy_qnet_learns_fixed_target` proves the from-scratch network genuinely learns by regressing it onto a fixed target. |
+| 128 ★ | What do your tests cover? | **(1.2.0)** 196 tests in 15 files: 43 for the hardware model (protocol, firmware logic compiled for the PC, real-time playback, the simulated board end to end) and one for the emergency-vehicle count the dashboard banner relies on; GitHub Actions runs them all on every push; **(1.1.0)** 152 tests in 14 files: the original 26 below, plus the dashboard protocol (a delta stream rebuilds every keyframe; the browser's between-frame picture equals the simulator second by second; the JavaScript model matches its Python mirror), the FastAPI and stdlib servers (WebSocket, path traversal, validation), the vehicle catalogue, the server's one-thread BLAS pinning, and checkpoint/config compatibility. Original 26 tests in 6 files, all passing. Safety FSM (5), controllers including preemption (5), PER sum-tree and the NumPy net (5), environment API and determinism (4), reward shaping (3), benchmark aggregation maths (4). | Two are behavioural rather than unit tests, which I think is the more valuable kind here: `test_max_pressure_beats_fixed_on_high` pins the baseline ordering, and `test_numpy_qnet_learns_fixed_target` proves the from-scratch network genuinely learns by regressing it onto a fixed target. |
 | 129 ★★ | What is *not* tested? | Named plainly: no test of the SUMO backend — it cannot run without SUMO installed; no test of the dashboard HTTP layer or the JavaScript; no end-to-end training test; and no test asserting the shipped checkpoint's numbers. | Coverage is honest about where it stops. The gap I would close first is a smoke test that loads `atsc_2x2.pt` and asserts one benchmark row within tolerance — that turns the reproduction I ran by hand into something CI enforces. `run.py doctor` currently does the checkpoint-loads part. |
 | 130 | Why no PyTorch, FastAPI or SUMO on the machine that produced the results? | Because the fallbacks are the point. The project ships a NumPy Q-network, a stdlib HTTP server and a built-in simulator so that it runs on a bare Python install. | That is also the strongest evidence they are real fallbacks and not decorative `try/except` blocks — the shipped model was trained by the NumPy network, and the checkpoint format is deliberately a portable dict of arrays so the same file loads under PyTorch unchanged (`test_numpy_qnet_weight_portability`). |
 
@@ -864,7 +872,7 @@ These are the questions designed to catch an overclaim. In every case the winnin
 | # | Question | Say this | If pushed |
 |---|---|---|---|
 | 139 ★★ | What did *you* build versus what came from libraries? | I wrote the environment, the point-queue simulator, the safety FSM, the observation builder, the multi-agent wrapper, the prioritized replay with its sum-tree, the NumPy network including its backward pass, all three controllers, the preemption override, the training loop, the evaluation harness and the entire dashboard front end. The algorithms are published; the implementations here are mine. | Libraries used are NumPy, pandas and matplotlib, plus optional PyTorch, FastAPI/uvicorn and SUMO/TraCI. There is no RL framework — no Stable-Baselines, no RLlib, no Gym environment library. Only claim the parts you can open and explain on the spot. |
-| 140 ★★ | What was the hardest part? | Making the results trustworthy, not making the agent learn. The reproducibility bug is the example: a cosmetic dashboard feature drew from the main RNG stream and silently moved every KPI. | That is a better answer than "tuning hyperparameters" because it is specific, it shows judgement, and it has a verifiable fix — separate named RNG streams, and 36/36 rows now reproducing to 1e-9. |
+| 140 ★★ | What was the hardest part? | Making the results trustworthy, not making the agent learn. The reproducibility bug is the example: a cosmetic dashboard feature drew from the main RNG stream and silently moved every KPI. | That is a better answer than "tuning hyperparameters" because it is specific, it shows judgement, and it has a verifiable fix — separate named RNG streams, and 36/36 rows now reproducing byte for byte. |
 | 141 ★ | What would you do differently? | Three things: measure on SUMO before writing any number down, run 10 seeds instead of 3, and run the two ablations (no-PER, vanilla DQN) that would let me attribute the gain to the specific algorithm choices. | I would also rename `avg_speed` to `moving_fraction` — the current label is the most misleading thing in my metric set, and I found it by re-deriving every number from the CSVs rather than trusting the report. |
 | 142 ★ | What did you learn that you did not expect? | That the most defensible result was the one I did not aim for: variance. RL's seed spread at rush is 2.69 s against fixed-time's 30.02 s. | It reframed how I think about the contribution — adaptivity buys predictability under load, which is arguably what an operator values more than a better mean. |
 | 143 | If I gave you one more month, what would you do? | In order: SUMO re-measurement, 10 seeds with confidence intervals, the two ablations, then sensing noise. Only after that would I touch QMIX. | The ordering is deliberate — it is credibility work before capability work. Adding a fancier algorithm on top of a three-seed point-queue result would make the project look more advanced and be worth less. |
@@ -900,9 +908,9 @@ Every one is verified against the shipped code, `config.yaml` or `outputs/*.csv`
 | 19 | Throughput | **−0.1 / +0.0 / +2.8 / +7.6 %** — demand-bound, the deck's +35–45 % is **not** met | same CSV |
 | 20 | Emergency clearance | 26.0→20.0 (1.30×), 28.7→18.3 (1.56×), 80.0→41.7 (1.92×), **113.7→32.7 (3.48×)** | same CSV |
 | 21 | Consistency | seed spread at rush: fixed **30.02 s** vs RL **2.69 s** → ~**11× more consistent** | same CSV |
-| 22 | Codebase | **47 Python files, 5,463 LOC**, 959 front-end lines, **zero front-end dependencies** | verified inventory |
-| 23 | Tests | **144 tests, all passing**, in 13 files (26 in 6 files in 1.0.0) | `tests/` |
-| 24 | Reproducibility | **36/36** benchmark rows reproduce the shipped CSV to **1e-9** | reran this week |
+| 22 | Codebase | **75 Python files, 12,664 lines**, 3,159 front-end lines, 899 lines of firmware, **zero front-end dependencies** | `git ls-files` (release 1.2.0) |
+| 23 | Tests | **196 tests, all passing**, in 15 files (26 in 6 files in 1.0.0); GitHub Actions runs them on every push | `tests/`, `.github/workflows/ci.yml` |
+| 24 | Reproducibility | **36/36** benchmark rows reproduce the shipped CSV **byte for byte**, with PyTorch and with the NumPy network | CI, on every push |
 | 25 | Honest boundary | all numbers from the **built-in** backend; SUMO implemented but **not measured**; **QMIX disabled** | `backend: auto`, `qmix.enabled: false` |
 
 Three derived figures worth being able to produce on demand, because they prove you
@@ -1020,7 +1028,7 @@ replay buffer including its sum-tree (`agents/replay.py`), the NumPy Q-network *
 backward pass** (`agents/net.py`), all three controllers and the preemption override
 (`control/`), the training loop (`train/`), the evaluation and plotting harness (`eval/`), the
 SUMO backend and network generator (`sim/sumo_backend.py`, `sim/netgen.py`), the entire
-dashboard front end drawn on canvas with no libraries, the 26 tests, and the seeding discipline
+dashboard front end drawn on canvas with no libraries, the test suite, and the seeding discipline
 that makes 36/36 rows reproduce exactly.
 
 **These are published work you implemented. Say "I implemented", not "I designed".**
@@ -1078,9 +1086,10 @@ takes emergency and pause requests from a 433 MHz remote. Build and demo: `docs/
 
 ---
 
-*End of VIVA_MASTER.md. Verification state at time of writing: 26/26 tests pass,
+*End of VIVA_MASTER.md. Verification state for release 1.2.0: 196/196 tests pass,
 `python run.py doctor` reports config and checkpoint OK, and all 36 benchmark rows reproduce
-the shipped CSV to within 1e-9.*
+the shipped CSV byte for byte with either network; CI repeats the tests and the
+reproduction on every push.*
 
 
 

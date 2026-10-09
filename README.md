@@ -17,7 +17,7 @@
   <img alt="Python 3.10 to 3.12" src="https://img.shields.io/badge/Python-3.10%20%E2%80%93%203.12-3776AB?logo=python&logoColor=white">
   <img alt="PyTorch 2.2 with a NumPy fallback" src="https://img.shields.io/badge/PyTorch-2.2%20%C2%B7%20NumPy%20fallback-EE4C2C?logo=pytorch&logoColor=white">
   <img alt="SUMO optional" src="https://img.shields.io/badge/SUMO-optional-00A0A0">
-  <img alt="195 tests passing" src="https://img.shields.io/badge/tests-195%20passing-22c55e">
+  <a href="https://github.com/Adityakumar1805/adaptive-traffic-signal-rl/actions/workflows/ci.yml"><img alt="CI: tests and benchmark reproduction" src="https://github.com/Adityakumar1805/adaptive-traffic-signal-rl/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Arduino signal model" src="https://img.shields.io/badge/hardware-Arduino%20model-00979D?logo=arduino&logoColor=white">
   <img alt="36 benchmark runs" src="https://img.shields.io/badge/benchmark-36%20runs-38bdf8">
   <img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-64748b">
@@ -36,6 +36,14 @@ e-rickshaws, buses, tractors…) driving on the left, with ambulances, police ca
 engines you can dispatch yourself. The same agents can also switch the **16 traffic lights of
 a table-top Arduino model**, in real time, with toy cars and a remote control feeding back
 into the simulation ([the physical model](#the-physical-model)).
+
+<p align="center">
+  <img src="docs/screenshots/dashboard_demo.gif" width="100%" alt="The live dashboard at rush hour: the RL grid on the left and the fixed-time grid on the right run on identical traffic; an ambulance is dispatched into both, passes through the RL grid in 43 seconds while it is still queued in fixed-time traffic, and the emergency-clearance card ends on 3.2 times faster">
+  <br>
+  <sub>The live dashboard at rush hour, at 0.5× (12.5× real time): one ambulance is dispatched into both grids. In
+  this run it needs 43 simulated seconds to cross the RL grid and 138 to cross the fixed-time one (3.2×); over the
+  benchmark's three seeds the rush-hour figure is 3.5×. Recorded with <code>tools/record_gif.py</code>.</sub>
+</p>
 
 ```bash
 python run.py demo              # dashboard on http://127.0.0.1:8000 — nothing else to configure
@@ -100,14 +108,15 @@ case that actually matters for an ambulance.
 
 <table>
 <tr>
-<td width="50%"><img alt="Grouped bar plots of waiting time, queue length, throughput and speed for the three controllers across the four demand levels" src="docs/screenshots/comparison_kpis.png"></td>
-<td width="50%"><img alt="Percentage improvement of the RL controller over fixed-time for waiting time, queue length and throughput" src="docs/screenshots/rl_improvement.png"></td>
+<td width="50%"><img alt="Grouped bar plots of average waiting time, average queue length and throughput for the three controllers across the four demand levels" src="outputs/comparison_kpis.png"></td>
+<td width="50%"><img alt="Percentage reduction of waiting time and queue length by the RL controller against fixed-time at each demand level, with the proposal's 40 to 50 percent target band shaded" src="outputs/rl_improvement.png"></td>
 </tr>
 </table>
 
 `python run.py eval` reruns all 36 episodes and overwrites both the CSVs and these plots.
 The random seeds are fixed, so a rerun reproduces the table above rather than something
-near it.
+near it — [CI](.github/workflows/ci.yml) reruns it on every push, once with PyTorch and once
+with the NumPy network the hosted site uses, and fails if a single byte of the CSVs changes.
 
 ---
 
@@ -124,7 +133,7 @@ left, the fixed-time controller on the right. The queues you can see are the who
 | **Pause · Step · Reset** | Freeze, advance exactly one 5 s decision, or restart the episode |
 | **Speed** | 0.2× to 8× (1× = one 5 s decision per 200 ms tick, 25× real time); with the Arduino model attached, real time to 200× real time |
 | **Dispatch an emergency vehicle** | Ambulance, police car or fire engine (configurable) into *both* grids; the banner names it and the junction it pre-empts, and tells you when it is through the RL grid but still stuck in fixed-time traffic |
-| **KPI cards** | RL's change against fixed-time — waiting time, queue, throughput — with the same sign convention as the results table (−26.5 % = 26.5 % less), and the emergency clearance time (compared only over vehicles that have cleared both grids). On a laptop they sit beside the grids, so the whole race and the numbers fit on one screen |
+| **KPI cards** | RL's change against fixed-time — waiting time, queue, throughput — with the same sign convention as the results table (−26.5 % = 26.5 % less), and the emergency clearance time (compared only over vehicles that have cleared both grids). They describe the episode on screen — one seed, still running — not the three-seed benchmark: at rush hour the fixed-time queues keep growing, so the waiting-time card climbs from about −39 % five minutes in to about −60 % at the end of the 30-minute episode (the benchmark says −61.2 %). On a laptop they sit beside the grids, so the whole race and the numbers fit on one screen |
 | **Vehicles** | All 18 vehicle types, drawn to scale, with how many of each are on the RL grid right now |
 | **Charts** | Waiting time and queue length over the episode, RL against fixed-time |
 
@@ -236,7 +245,7 @@ beats the agents at low and medium demand; the results table above says so out l
 | Numerics | NumPy 1.26, pandas + matplotlib for the benchmark plots | — |
 | Hardware (optional) | Arduino Uno firmware in C++, six 74HC595s, FC-51 IR sensors, 433 MHz remote, SSD1306 OLED; `pyserial` on the PC | the dashboard alone |
 | Config | one `config.yaml`, read by every module | — |
-| Tests | pytest, 195 tests (the original 26 + protocol, server, vehicle, page and hardware tests) and a Playwright browser check | — |
+| Tests | pytest, 196 tests (the original 26 + protocol, server, vehicle, page and hardware tests), run by GitHub Actions on every push, and a Playwright browser check | — |
 | Hosting | Render free plan, defined in [`render.yaml`](render.yaml) | the same [`Dockerfile`](Dockerfile) on Spaces / Fly / Railway |
 
 Three of those fallbacks are load-bearing rather than decorative: the hosted site runs
@@ -272,12 +281,12 @@ pip install -r requirements.txt
 
 python run.py doctor         # environment and dependency check, prints what is missing
 python run.py demo           # train-if-needed, then open the live dashboard
-python run.py train --quick  # 8 episodes, a few CPU minutes -> models/pretrained/atsc_2x2_quick.pt
-python run.py train --overwrite  # full 112-episode curriculum; REPLACES the shipped model
+python run.py train --quick  # 8 episodes, under a minute on a CPU -> models/pretrained/atsc_2x2_quick.pt
+python run.py train --overwrite  # full 112-episode curriculum (~2 CPU minutes); REPLACES the shipped model
 python run.py eval           # 36-run benchmark -> outputs/*.csv, summary and KPI plots
 python run.py eval --backend sumo   # the same benchmark on SUMO -> outputs/sumo/
 python run.py sim            # watch the trained policy in SUMO-GUI (needs SUMO)
-pytest                       # the test suite
+pytest                       # 196 tests in ~40 s (without Node, g++ or simavr a few skip themselves)
 python tools/e2e_browser.py --local   # headless-browser check of the dashboard (needs playwright)
 ```
 
@@ -336,7 +345,7 @@ an ambulance still gets its amber and all-red before the cross street loses its 
 | **Emergency preemption** | Detected at the stop line, corridor forced through the same safety gate, clearance time measured as a KPI; ambulance, police car and fire engine on the dashboard |
 | **Honest benchmarking** | Not just fixed-time: also **max-pressure**, a controller that is near-optimal for throughput — and it wins at low demand, which the results report says out loud |
 | **Runs on any machine** | SUMO ↔ built-in simulator, PyTorch ↔ a from-scratch NumPy dueling network with a portable checkpoint format, FastAPI ↔ a stdlib HTTP server. Three fallbacks, one behaviour |
-| **Reproducible** | One seed in `config.yaml`, fixed evaluation seeds, tracked CSVs. `run.py eval` regenerates the published numbers byte for byte from the shipped checkpoint (retraining does not — see [Known limitations](#known-limitations)) |
+| **Reproducible** | One seed in `config.yaml`, fixed evaluation seeds, tracked CSVs. `run.py eval` regenerates the published numbers byte for byte from the shipped checkpoint, and CI checks that on every push (retraining does not reproduce them — see [Known limitations](#known-limitations)) |
 
 ---
 
@@ -349,6 +358,7 @@ requirements.txt · environment.yml · pytest.ini
 asgi.py · render.yaml            hosted deployment: entrypoint + Render Blueprint
 Dockerfile · Procfile · requirements-deploy.txt (every package pinned)
 CHANGELOG.md                     what changed in each release
+.github/workflows/ci.yml         CI: the tests, the benchmark reproduced byte for byte, the hosted stack
 
 src/atsc/
   config.py · seeding.py · logging_utils.py    config loading, determinism, logs
@@ -369,13 +379,14 @@ src/atsc/
 firmware/atsc_signal_node/       Arduino sketch + atsc_core.h (logic unit-tested on the PC)
 
 models/pretrained/atsc_2x2.pt    the shipped checkpoint: 313 KB, 112 training episodes
-tests/                           195 tests: the original 26 (env, safety, reward, replay,
+tests/                           196 tests: the original 26 (env, safety, reward, replay,
                                  controllers, benchmark maths) + protocol, server, vehicles, page,
                                  hardware (firmware logic, playback, sensors, simulated board)
 tools/                           e2e_browser.py (Playwright check) · bench_server.py (tick/payload/load)
+                                 · record_gif.py (the animation at the top)
                                  · virtual_board/ (the firmware on a simulated Uno) · hardware_diagrams.py
 outputs/                         the CSVs, summary and plots this README quotes — tracked on purpose
-docs/assets/ · docs/screenshots/ the diagrams and stills above
+docs/assets/ · docs/screenshots/ the diagrams, stills and animation above
 ```
 
 ---
@@ -401,7 +412,7 @@ A map from the question to the file that answers it.
 | No *PyTorch*? | `agents/net.py` | from-scratch NumPy dueling network with manual backprop and a portable checkpoint format |
 | The *hardware*? | `firmware/atsc_signal_node`, `hw/mirror.py` | the board shows the RL grid second by second in real time; sensors and the remote feed the simulation; it fails safe to flashing amber ([HARDWARE.md](docs/HARDWARE.md)) |
 
-The long form — verified file inventory, known weaknesses, and 144 questions with answers —
+The long form — verified file inventory, known weaknesses, and 155 questions with answers —
 is in [docs/VIVA_MASTER.md](docs/VIVA_MASTER.md).
 
 ---
@@ -439,7 +450,7 @@ those and loading it stops with a message naming the mismatch and how to retrain
 | You only have Python 3.13+ | The pinned PyTorch 2.2.2 / NumPy 1.26.4 have no wheels for it; install 3.12 alongside (the launchers pick it up, or `PYTHON=python3.12 ./run.sh`) |
 | `./run.sh: Permission denied` | `chmod +x run.sh` (or `bash run.sh`) |
 | The dashboard did not open | Browse to <http://127.0.0.1:8000> manually |
-| "No trained model" | `python run.py train --quick` — a few CPU minutes |
+| "No trained model" | `python run.py train --quick` — under a minute on a CPU |
 | Port 8000 is busy | Change `dashboard.port` in `config.yaml` |
 | You want the SUMO view | Install SUMO 1.18+, set `SUMO_HOME`, then `python run.py doctor` |
 | The live demo takes ~a minute to load | Expected: the free instance sleeps after 15 min idle. Returning visitors see "Waking up the server…" and the page connects by itself |
@@ -506,7 +517,7 @@ the bottom bar does not say **live · streaming** — is in
 | [CHEATSHEET.md](CHEATSHEET.md) | The demo script and the numbers worth knowing by heart |
 | [docs/HARDWARE.md](docs/HARDWARE.md) | Building the Arduino signal model: parts, layout, wiring tables, firmware, calibration, viva demo, troubleshooting |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Hosting the live dashboard: platform choice, exact steps, verification checklist |
-| [docs/VIVA_MASTER.md](docs/VIVA_MASTER.md) | File-by-file verification, honest weaknesses, 144 questions with answers |
+| [docs/VIVA_MASTER.md](docs/VIVA_MASTER.md) | File-by-file verification, honest weaknesses, 155 questions with answers (11 on the hardware) |
 | [CHANGELOG.md](CHANGELOG.md) | Every change in each release, file by file |
 
 ---

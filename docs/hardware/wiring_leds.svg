@@ -186,6 +186,6 @@
   <text x='390' y='657' font-size='11' fill='#222' text-anchor='middle' font-weight='bold' font-family='Helvetica, Arial, sans-serif'>GND</text>
   <text x='800' y='520' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>Every head is wired the same way: its red, amber and green pins to three outputs</text>
   <text x='800' y='540' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>in a row, its GND pin to GND. Head Hn uses LEDs 3n, 3n+1, 3n+2; LED m is</text>
-  <text x='800' y='560' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>output Q(m mod 8) of chip #(m div 8 + 1) - the table in HARDWARE.md, step 4.</text>
+  <text x='800' y='560' font-size='13' fill='#111' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>output Q(m mod 8) of chip #(m div 8 + 1) - the table in HARDWARE.md, section 5.</text>
   <text x='800' y='586' font-size='13' fill='#d32f2f' text-anchor='start' font-weight='normal' font-family='Helvetica, Arial, sans-serif'>Modules without built-in resistors need 220-330 ohm in series with each LED.</text>
 </svg>

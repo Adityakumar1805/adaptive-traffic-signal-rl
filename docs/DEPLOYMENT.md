@@ -272,7 +272,10 @@ it is shown again, so forgotten background tabs do not use bandwidth or keep a s
 episode from `seed: 42`.
 
 **Bandwidth.** About 3.9 KB/s per viewer at the default speed (20 KB/s at rush 8×), i.e.
-roughly 14 MB per viewer-hour.
+roughly 14 MB per viewer-hour. Free web services draw on the workspace's included outbound
+bandwidth, which Render's pricing page lists as 5 GB a month on the Hobby plan (checked
+October 2026) — about 350 viewer-hours at the default speed. The Billing page of the Render
+dashboard shows what has been used.
 
 ## Redeploying after a push
 
@@ -288,6 +291,16 @@ The build log appears in the Render dashboard within a few seconds. When the new
 live, `/healthz` reports the new `build` id, and a tab that was open on the old version
 reloads itself once when it reconnects (the page compares its build id with the server's).
 
+The same push runs GitHub Actions ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)):
+the test suite, the 36-run benchmark reproduced byte for byte from the shipped checkpoint
+(with PyTorch and with the NumPy network), and this deploy stack — `requirements-deploy.txt`
+on Python 3.12.6, `render.yaml`'s start command, `/healthz` and the WebSocket. Render does not
+wait for it by default. To deploy only commits that pass, set **Settings → Auto-Deploy → After
+CI Checks Pass** in the Render dashboard, or `autoDeployTrigger: checksPass` in `render.yaml`
+(Render now documents `autoDeployTrigger: commit` as the replacement for the deprecated
+`autoDeploy: true` that `render.yaml` uses; the two behave the same). Render then skips a commit whose
+checks fail — and also one where no check ran at all.
+
 ## Local development
 
 ```bash
@@ -295,7 +308,7 @@ python run.py demo           # dashboard on http://127.0.0.1:8000
 python run.py doctor         # dependency and environment check
 python run.py train --quick  # 8 episodes, a separate *_quick.pt
 python run.py eval           # the 36-run benchmark (built-in simulator)
-pytest                       # 144 tests
+pytest                       # 196 tests
 python tools/e2e_browser.py --local   # the browser check above, against a local server
 ```
 

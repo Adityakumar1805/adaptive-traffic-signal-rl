@@ -1,14 +1,14 @@
 # Changelog
 
-## 1.2.0 — 2026-10-04
+## 1.2.0 — 2026-10-09
 
 ### Unchanged on purpose
 
 The RL model, the shipped checkpoint, the safety FSM (`src/atsc/envs/phases.py`) and every
 published number. `python run.py eval` still regenerates `outputs/benchmark_results.csv` and
 `outputs/benchmark_summary.csv` byte-identically; training and the benchmark never import
-the hardware code. The hosted site is unaffected: hardware mode is off unless asked for, and
-`requirements-deploy.txt` is unchanged.
+the hardware code. The hardware code never runs on the hosted site (hardware mode is off
+unless asked for), and `requirements-deploy.txt` is unchanged.
 
 ### Added: the Arduino signal model (`docs/HARDWARE.md`)
 
@@ -46,7 +46,7 @@ the hardware code. The hosted site is unaffected: hardware mode is off unless as
   to the real dashboard. Used to verify this release: every lamp change matched the RL grid,
   amber 3.0 s and all-red 2.0 s on the board's own clock, sensors and buttons reached both
   grids, hot-plug reconnected, worst-case serial bursts were all applied in order.
-- 43 tests in `tests/test_hardware.py` (195 in total): protocol, the firmware logic compiled
+- 43 tests in `tests/test_hardware.py`: protocol, the firmware logic compiled
   for the PC against the Python side (CRC, parser, lamp wiring, line resync, debounce, link
   watchdog), real-time playback with a fake clock, reconnects, the session in hardware mode,
   the RNG-invariance of sensed cars, hardware-off importing nothing, and the virtual board end
@@ -60,6 +60,48 @@ the hardware code. The hosted site is unaffected: hardware mode is off unless as
   frame only every 5 s, plays smoothly instead of in bursts).
 - The speed slider showed the page's placeholder (1×) for up to a second after loading
   instead of the server's speed.
+- **The emergency banner flickered off and on** while the vehicle waited in the part of a
+  long queue the browser is not sent (the `+n` badge) — at rush hour on the fixed-time grid,
+  exactly when the comparison matters. Frames now carry `ne`, the server's count of emergency
+  vehicles in each grid (sent when it changes); the banner follows it and remembers which
+  vehicle it is. Tested by `test_frames_count_emergency_vehicles_the_browser_is_not_sent`, and
+  the JavaScript/Python model parity test now compares `ne` as well.
+- `run.py hwtest` and the LED wiring figure pointed at "step 4" of `docs/HARDWARE.md` for the
+  LED table; it is section 5.
+
+### Added: CI, the README animation
+
+- **GitHub Actions** (`.github/workflows/ci.yml`), on every push and pull request: the full
+  suite with Node, g++, the AVR toolchain and simavr installed, failing if any test is
+  skipped; the 36-run benchmark rerun from the shipped checkpoint twice — with PyTorch, then
+  with the NumPy network the hosted site runs — and compared byte for byte with the shipped
+  CSVs and summary; and the hosted stack (`requirements-deploy.txt` on Python 3.12.6, the
+  start command from `render.yaml`) booted and checked through `/healthz` and the WebSocket.
+  The README's static test-count badge is replaced by the workflow's status badge.
+- `docs/screenshots/dashboard_demo.gif` at the top of the README (rush hour, one ambulance
+  through both grids), recorded by the new `tools/record_gif.py` (headless Chromium + ffmpeg).
+- 196 tests in total (26 in 1.0.0, 152 in 1.1.0).
+
+### Documentation
+
+- Every count brought up to date: tests 196 (the hero image still said 26/26, `EXPLAINER.md`
+  and `docs/DEPLOYMENT.md` 144), questions in `docs/VIVA_MASTER.md` 155, Python modules 49,
+  checkpoint size 313 KB everywhere. Benchmark figures were checked against
+  `outputs/benchmark_summary.md` in every file; none had to change.
+- Training times measured: `train --quick` takes under a minute (the docs and messages said
+  "a few minutes"), the full 112 episodes about two minutes.
+- The README shows the benchmark plots straight from `outputs/` (so `run.py eval` really does
+  overwrite "these plots"), with alt texts that match them, and explains why the live KPI
+  cards differ from the benchmark (one seed, an episode in progress).
+- `docs/DEPLOYMENT.md`: what CI checks, Render's *After CI Checks Pass* auto-deploy option,
+  and the 5 GB a month of outbound bandwidth Render's pricing page now lists for the Hobby
+  plan.
+
+### Removed
+
+- `docs/screenshots/comparison_kpis.png`, `rl_improvement.png`, `emergency_clearance.png`:
+  byte-identical copies of the plots in `outputs/`.
+- `docs/screenshots/network_render_rl_vs_fixed.png`: no longer used by any document.
 
 ## 1.1.0 — 2026-10-01
 

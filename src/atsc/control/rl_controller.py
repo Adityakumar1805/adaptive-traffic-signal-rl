@@ -44,7 +44,7 @@ class RLController(Controller):
                 "RL checkpoint not found",
                 f"Expected a trained model at:\n  {ckpt}\n"
                 "The RL controller needs a trained policy to run.",
-                fix="Train one with:\n  python run.py train --quick   (a few minutes)\n"
+                fix="Train one with:\n  python run.py train --quick   (under a minute)\n"
                     "or ship/restore the pre-trained checkpoint in models/pretrained/.",
             ))
 

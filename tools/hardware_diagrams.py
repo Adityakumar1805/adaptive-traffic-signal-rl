@@ -255,7 +255,7 @@ def chain() -> Svg:
            size=13, anchor="start")
     s.text(800, hy + 40, "in a row, its GND pin to GND. Head Hn uses LEDs 3n, 3n+1, 3n+2; LED m is", size=13,
            anchor="start")
-    s.text(800, hy + 60, "output Q(m mod 8) of chip #(m div 8 + 1) - the table in HARDWARE.md, step 4.",
+    s.text(800, hy + 60, "output Q(m mod 8) of chip #(m div 8 + 1) - the table in HARDWARE.md, section 5.",
            size=13, anchor="start")
     s.text(800, hy + 86, "Modules without built-in resistors need 220-330 ohm in series with each LED.",
            size=13, anchor="start", fill=RED)

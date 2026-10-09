@@ -153,7 +153,7 @@ reward:
 train:
   episodes: 112                # full `python run.py train` — 112 is what produced the
                                # shipped checkpoint (112 rows in outputs/logs/train.csv)
-  quick_episodes: 8            # `python run.py train --quick` (few CPU minutes)
+  quick_episodes: 8            # `python run.py train --quick` (under a minute on a CPU)
   curriculum: [low, medium, high, rush]   # scenarios cycled during training
   episode_seconds: 1200        # shorter episodes while training (speed)
   eval_every: 10               # run a quick greedy eval every N episodes
